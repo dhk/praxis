@@ -1,0 +1,20 @@
+id: concise_scientific_writing
+version: 0.1.0
+title: Concise Scientific Writing
+transformations:
+  - id: CSW-001
+    title: Remove unnecessary introductory phrases
+    safety: safe
+    kind: phrase_delete
+  - id: CSW-002
+    title: Replace verbose phrases with concise equivalents
+    safety: low_risk
+    kind: phrase_replace
+  - id: CSW-003
+    title: Convert nominalizations to stronger verbs
+    safety: low_risk
+    kind: phrase_replace
+  - id: CSW-004
+    title: Flag long sentences for review
+    safety: review
+    kind: flag
