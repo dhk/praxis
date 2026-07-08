@@ -15,6 +15,7 @@ const state = {
   selectedObs: null,
   transformTab: 'diff',
   reportTab: null,
+  compareView: 'raw', // 'raw' | 'rendered'
   running: false,
   error: null,
   packId: DEFAULT_PACK,
@@ -570,18 +571,32 @@ function syncScroll(a, b) {
 
 function renderCompare() {
   const t = state.trail;
+  const rendered = state.compareView === 'rendered';
+  const pane = (text) => (rendered
+    ? `<div class="report-body">${renderMarkdown(text)}</div>`
+    : escapeHtml(text));
+  const paneClass = rendered ? 'rendered-view compare-pane' : 'source-view compare-pane';
+
   panelEl.innerHTML = `
     ${passHead(7, 'Compare', 'Original and final documents side by side. Scrolling either pane scrolls the other proportionally.')}
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" data-compare-view="raw" aria-selected="${!rendered}">Raw</button>
+      <button class="tab" role="tab" data-compare-view="rendered" aria-selected="${rendered}">Rendered</button>
+    </div>
     <div class="compare-grid">
       <div class="compare-col">
         <div class="label">Original · ${t.metrics.before.words} words</div>
-        <div class="source-view compare-pane" id="cmp-original">${escapeHtml(state.runSource)}</div>
+        <div class="${paneClass}" id="cmp-original">${pane(state.runSource)}</div>
       </div>
       <div class="compare-col">
         <div class="label">Final · ${t.metrics.after.words} words</div>
-        <div class="source-view compare-pane" id="cmp-final">${escapeHtml(t.final)}</div>
+        <div class="${paneClass}" id="cmp-final">${pane(t.final)}</div>
       </div>
     </div>`;
+
+  panelEl.querySelectorAll('[data-compare-view]').forEach((el) => {
+    el.addEventListener('click', () => { state.compareView = el.dataset.compareView; render(); });
+  });
   syncScroll(document.getElementById('cmp-original'), document.getElementById('cmp-final'));
 }
 

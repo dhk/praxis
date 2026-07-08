@@ -520,6 +520,14 @@ table.data code, .before-after code {
 .compare-col { display: flex; flex-direction: column; gap: 8px; }
 .compare-pane { max-height: 620px; overflow-y: auto; }
 
+.rendered-view {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 16px;
+}
+.rendered-view .report-body { font-size: 14px; }
+
 /* ── Footer ───────────────────────────────────────── */
 
 .footer {
