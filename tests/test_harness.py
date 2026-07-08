@@ -61,6 +61,22 @@ def test_pack_registry_lists_all_packs():
     assert packs["claude_skill_authoring"]["transformations"] == 6
     assert packs["resume_writing"]["transformations"] == 6
 
+def test_render_prompt_packages_flagged_items():
+    from praxis.handoff import render_prompt
+    source = Path("examples/resume/input.md").read_text(encoding="utf-8")
+    result = run_pipeline(source, "resume_writing")
+    prompt = render_prompt(result)
+    flagged = [t for t in result["transformations"] if not t["applied"]]
+    assert flagged and all(t["id"] in prompt for t in flagged)
+    assert "Proposed rewrite:" in prompt                 # response format stated
+    assert result["final"] in prompt                     # document included
+    assert "`2021`" in prompt                            # protected tokens listed
+    # Applied items are not offered for re-litigation.
+    applied_ids = [t["id"] for t in result["transformations"] if t["applied"]]
+    assert all(f"### {tid} " not in prompt for tid in applied_ids)
+    # A clean document produces no prompt.
+    assert render_prompt(run_pipeline("A short note. Nothing here.")) == ""
+
 def test_unknown_pack_rejected():
     import pytest
     with pytest.raises(KeyError):

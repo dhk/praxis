@@ -3,8 +3,9 @@ import json
 from pathlib import Path
 from .pipeline import run_pipeline
 from .packs import DEFAULT_PACK_ID, PACKS
+from .handoff import render_prompt
 
-def run(input_path: Path, out_dir: Path, pack_id: str = DEFAULT_PACK_ID) -> None:
+def run(input_path: Path, out_dir: Path, pack_id: str = DEFAULT_PACK_ID, prompt: bool = False) -> None:
     original = input_path.read_text(encoding="utf-8")
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -17,6 +18,14 @@ def run(input_path: Path, out_dir: Path, pack_id: str = DEFAULT_PACK_ID) -> None
     (out_dir / "final.md").write_text(result["final"], encoding="utf-8")
     (out_dir / "report.md").write_text(result["report"], encoding="utf-8")
 
+    if prompt:
+        text = render_prompt(result)
+        if text:
+            (out_dir / "prompt.md").write_text(text, encoding="utf-8")
+            print(f"Wrote review handoff prompt to {out_dir / 'prompt.md'}")
+        else:
+            print("No flagged items; no handoff prompt written.")
+
     print(f"Wrote artifact trail to {out_dir}")
     print(f"Validation: {result['validation']['status']}")
     print(f"Words: {result['metrics']['before']['words']} -> {result['metrics']['after']['words']}")
@@ -28,6 +37,8 @@ def main() -> None:
     run_p.add_argument("input", type=Path)
     run_p.add_argument("--out", type=Path, default=Path("artifacts/run"))
     run_p.add_argument("--pack", choices=sorted(PACKS), default=DEFAULT_PACK_ID)
+    run_p.add_argument("--prompt", action="store_true",
+                       help="also write prompt.md, an LLM review handoff for the flagged items")
     args = parser.parse_args()
     if args.cmd == "run":
-        run(args.input, args.out, args.pack)
+        run(args.input, args.out, args.pack, args.prompt)

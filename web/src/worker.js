@@ -14,6 +14,7 @@ import difflib
 from praxis.pipeline import run_pipeline
 from praxis.packs import list_packs
 from praxis.validation import protected_tokens
+from praxis.handoff import render_prompt
 
 def _word_diff(a, b):
     """Word-level opcodes between two documents, whitespace preserved."""
@@ -30,6 +31,7 @@ def run_json(source, pack_id):
     result["ui"] = {
         "protected_tokens": sorted(protected_tokens(source)),
         "diff": _word_diff(source, result["final"]),
+        "prompt": render_prompt(result),
     }
     return json.dumps(result)
 

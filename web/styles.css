@@ -491,6 +491,7 @@ table.data code, .before-after code {
 /* ── 6 · Report ───────────────────────────────────── */
 
 .report-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.prompt-hint { color: var(--text-dim); font-size: 14px; max-width: 70ch; }
 
 .report-body { font-size: 15px; display: flex; flex-direction: column; gap: 14px; }
 .report-body h1 { font-size: 24px; font-weight: 600; line-height: 1.3; margin-top: 8px; }

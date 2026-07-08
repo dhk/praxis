@@ -474,14 +474,25 @@ function download(name, blob) {
 
 function renderReport() {
   const t = state.trail;
+  const hasPrompt = Boolean(t.ui.prompt);
   panelEl.innerHTML = `
     ${passHead(6, 'Report', 'The rendered report: metrics before and after, the validation summary, the transformation log, and the final document.')}
     <div class="report-actions">
       <button class="btn" id="copy-final">Copy final document</button>
       <button class="btn" id="dl-final">Download final.md</button>
+      ${hasPrompt ? '<button class="btn" id="copy-prompt" title="Markdown handoff of the flagged items, ready to paste into Claude">Copy review prompt</button>' : ''}
       <button class="btn primary" id="dl-trail">Download artifact trail</button>
     </div>
+    ${hasPrompt ? '<p class="prompt-hint">The review prompt packages every flagged item — evidence, reasons, protected tokens, and the document — as Markdown for an LLM (or a colleague) to propose resolutions. The pipeline itself never calls one.</p>' : ''}
     <div class="card"><div class="report-body">${renderMarkdown(t.report)}</div></div>`;
+
+  if (hasPrompt) {
+    document.getElementById('copy-prompt').addEventListener('click', async (e) => {
+      await navigator.clipboard.writeText(t.ui.prompt);
+      e.target.textContent = 'Copied ✓';
+      setTimeout(() => { const b = document.getElementById('copy-prompt'); if (b) b.textContent = 'Copy review prompt'; }, 1500);
+    });
+  }
 
   document.getElementById('copy-final').addEventListener('click', async (e) => {
     await navigator.clipboard.writeText(t.final);

@@ -2,7 +2,7 @@
    (including the Pyodide runtime and Google Fonts) as it is first fetched.
    After one full load the site works with no network. */
 
-const CACHE = 'praxis-viewer-v3';
+const CACHE = 'praxis-viewer-v4';
 
 const SHELL = [
   './',
