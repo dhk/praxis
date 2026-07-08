@@ -1,8 +1,17 @@
 /* Offline support: precache the app shell, then cache everything else
    (including the Pyodide runtime and Google Fonts) as it is first fetched.
-   After one full load the site works with no network. */
+   After one full load the site works with no network.
 
-const CACHE = 'praxis-viewer-v4';
+   Fetch strategy is stale-while-revalidate, not cache-first: every request
+   is answered from cache immediately (so offline and repeat loads stay
+   fast), but a network fetch always runs in the background and refreshes
+   the cache for next time. Without this, a returning visitor would keep
+   seeing whatever was cached on their first visit forever — the service
+   worker only re-precaches when this file's bytes change, so a deploy that
+   touches index.html/styles.css/etc. but not sw.js would otherwise never
+   reach anyone who had already visited. */
+
+const CACHE = 'praxis-viewer-v5';
 
 const SHELL = [
   './',
@@ -46,16 +55,19 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
+
+  const revalidate = fetch(request).then((response) => {
+    if (response.ok || response.type === 'opaque') {
+      const copy = response.clone();
+      caches.open(CACHE).then((cache) => cache.put(request, copy));
+    }
+    return response;
+  });
+
   event.respondWith(
-    caches.match(request).then((cached) => {
-      if (cached) return cached;
-      return fetch(request).then((response) => {
-        if (response.ok || response.type === 'opaque') {
-          const copy = response.clone();
-          caches.open(CACHE).then((c) => c.put(request, copy));
-        }
-        return response;
-      });
-    }),
+    caches.match(request).then((cached) => cached || revalidate),
   );
+  // Keep refreshing the cache even when `cached` already answered the page,
+  // and swallow offline rejections here so they don't surface as unhandled.
+  event.waitUntil(revalidate.catch(() => {}));
 });
