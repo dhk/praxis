@@ -1,6 +1,6 @@
-# Praxis viewer
+# praxis viewer
 
-A static, single-page viewer for the Praxis artifact trail (RFC-0002 /
+A static, single-page viewer for the praxis artifact trail (RFC-0002 /
 `docs/design/praxis-viewer`). The user enters or uploads a document, runs the
 pipeline **once**, then steps through the six passes and their artifacts.
 Stepping is inspection, not execution — the artifact trail is the product.
@@ -46,4 +46,4 @@ GitHub Actions**.
 output directory. No framework, no environment variables.
 
 All asset URLs are relative, so the site works at a subpath
-(`https://<user>.github.io/Praxis/`) as well as at a domain root.
+(`https://<user>.github.io/praxis/`) as well as at a domain root.

@@ -1,8 +1,8 @@
-# Praxis
+# praxis
 
 > A reference architecture and executable harness for transparent, auditable document transformation pipelines.
 
-Praxis treats document improvement as an engineering workflow rather than a black-box rewrite. A source document moves through named operations that emit observations, recommendations, transformations, validation checks, and reports.
+praxis treats document improvement as an engineering workflow rather than a black-box rewrite. A source document moves through named operations that emit observations, recommendations, transformations, validation checks, and reports.
 
 The first vertical slice implements a small **Concise Scientific Writing** transformation pack inspired by evidence-based guidance for concise technical prose. It is deliberately limited: it proves the harness, artifact trail, and validation loop before expanding the architecture.
 

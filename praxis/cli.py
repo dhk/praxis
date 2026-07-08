@@ -31,7 +31,7 @@ def run(input_path: Path, out_dir: Path, pack_id: str = DEFAULT_PACK_ID, prompt:
     print(f"Words: {result['metrics']['before']['words']} -> {result['metrics']['after']['words']}")
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run an Praxis transformation pipeline.")
+    parser = argparse.ArgumentParser(description="Run a praxis transformation pipeline.")
     sub = parser.add_subparsers(dest="cmd", required=True)
     run_p = sub.add_parser("run")
     run_p.add_argument("input", type=Path)

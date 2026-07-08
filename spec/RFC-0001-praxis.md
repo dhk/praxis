@@ -1,11 +1,11 @@
-# RFC-0001: Praxis
+# RFC-0001: praxis
 
 Status: Draft  
 Version: 0.1
 
 ## Abstract
 
-Praxis is an architecture for converting human guidance into observable, testable transformation pipelines.
+praxis is an architecture for converting human guidance into observable, testable transformation pipelines.
 
 A pipeline must emit intermediate artifacts and must validate transformations before accepting them.
 

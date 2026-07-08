@@ -1,6 +1,6 @@
 # Architecture
 
-Praxis is a pass-based document transformation harness.
+praxis is a pass-based document transformation harness.
 
 The current implementation is intentionally small:
 

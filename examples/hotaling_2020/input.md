@@ -1,6 +1,6 @@
 # Writing Concisely in the Sciences
 
-> A demonstration passage written for Praxis in the spirit of Hotaling (2020),
+> A demonstration passage written for praxis in the spirit of Hotaling (2020),
 > "Simple rules for concise scientific writing", Limnology and Oceanography
 > Letters 5:379-383, https://doi.org/10.1002/lol2.10165. It exercises the
 > verbose patterns the paper targets; it is not quoted from the paper.

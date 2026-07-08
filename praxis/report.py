@@ -6,7 +6,7 @@ def render_report(before_metrics: dict, after_metrics: dict, validation: dict, t
         applied = "yes" if t.applied else "no"
         rows.append(f"| {t.id} | {t.rule_id} | {t.safety} | {applied} | `{t.before}` | `{t.after}` | {t.reason} | {t.validation_status} |")
     table = "\n".join(rows) if rows else "| — | — | — | — | — | — | — | — |"
-    return f"""# Praxis Report
+    return f"""# praxis Report
 
 ## Metrics
 

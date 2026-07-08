@@ -27,9 +27,9 @@ Evidence:
 
 > {t['before']}""")
 
-    return f"""# Praxis review handoff
+    return f"""# praxis review handoff
 
-This document was processed by Praxis, a deterministic transformation pipeline
+This document was processed by praxis, a deterministic transformation pipeline
 (pack: {pack.get('id', 'unknown')} v{pack.get('version', '?')} — {pack.get('title', '')}).
 Mechanical fixes were already applied. The items below were flagged for human
 judgment; the pipeline never edits them. Your job is to propose resolutions a
