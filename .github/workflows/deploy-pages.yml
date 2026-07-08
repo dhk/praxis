@@ -23,6 +23,23 @@ jobs:
         uses: actions/configure-pages@v5
         with:
           enablement: true
+      - name: Force Pages source to GitHub Actions
+        # configure-pages's `enablement` only creates the Pages site if it's
+        # missing entirely; if Pages already existed with the legacy
+        # "deploy from a branch" source (e.g. a stale default, or reset by a
+        # repo rename), it leaves that source untouched. That silently lets
+        # GitHub's own branch-based Jekyll builder render README.md as the
+        # site instead of this workflow's build, even though this workflow
+        # still reports success. Force the source unconditionally so a
+        # branch-mode Pages config can never shadow this deploy again.
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.request('PUT /repos/{owner}/{repo}/pages', {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              build_type: 'workflow',
+            });
       - name: Cache Pyodide runtime
         uses: actions/cache@v4
         with:
