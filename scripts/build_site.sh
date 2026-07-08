@@ -17,10 +17,12 @@ cp -r web/. dist/
 
 # The Python package is served as source files and imported unchanged in the
 # browser — the UI is evidence of what the harness actually does.
-mkdir -p dist/py/praxis
+mkdir -p dist/py/praxis dist/examples
 cp praxis/*.py dist/py/praxis/
-cp packs/concise_scientific_writing/pack.yaml dist/py/pack.yaml
-cp examples/concise_scientific_writing/input.md dist/example.md
+cp examples/concise_scientific_writing/input.md dist/examples/technical-note.md
+cp examples/hotaling_2020/input.md dist/examples/hotaling-2020.md
+cp examples/drift_study/input.md dist/examples/drift-study.md
+cp examples/claude_skill/SKILL.md dist/examples/claude-skill.md
 
 files=$(cd praxis && ls *.py | sed 's/^/"/;s/$/"/' | paste -sd, -)
 printf '{"files":[%s]}\n' "$files" > dist/py/manifest.json

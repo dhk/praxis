@@ -8,9 +8,15 @@ const readyListeners = [];
 
 let status = 'loading'; // 'loading' | 'ready' | 'error'
 let initError = null;
+let packs = [];
 
 export function engineStatus() {
   return { status, error: initError };
+}
+
+/** Pack metadata from the Python registry; empty until the engine is ready. */
+export function enginePacks() {
+  return packs;
 }
 
 export function onEngineReady(fn) {
@@ -26,6 +32,7 @@ export function startEngine() {
     if (msg.type === 'ready' || msg.type === 'init-error') {
       status = msg.type === 'ready' ? 'ready' : 'error';
       initError = msg.message || null;
+      packs = msg.packs || [];
       readyListeners.splice(0).forEach((fn) => fn(status));
       return;
     }
@@ -45,21 +52,21 @@ export function startEngine() {
   };
 }
 
-function request(op, source) {
+function request(op, source, pack) {
   startEngine();
   const id = nextId++;
   return new Promise((resolve, reject) => {
     pending.set(id, { resolve, reject });
-    worker.postMessage({ id, op, source });
+    worker.postMessage({ id, op, source, pack });
   });
 }
 
 /** Run the pipeline once; resolves with the full artifact trail. */
-export function runPipeline(source) {
-  return request('run', source);
+export function runPipeline(source, pack = 'concise_scientific_writing') {
+  return request('run', source, pack);
 }
 
 /** Zip of the six artifact files, byte-identical to a CLI run's output dir. */
-export function downloadTrailZip(source) {
-  return request('zip', source);
+export function downloadTrailZip(source, pack = 'concise_scientific_writing') {
+  return request('zip', source, pack);
 }

@@ -2,12 +2,13 @@ import argparse
 import json
 from pathlib import Path
 from .pipeline import run_pipeline
+from .packs import DEFAULT_PACK_ID, PACKS
 
-def run(input_path: Path, out_dir: Path) -> None:
+def run(input_path: Path, out_dir: Path, pack_id: str = DEFAULT_PACK_ID) -> None:
     original = input_path.read_text(encoding="utf-8")
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    result = run_pipeline(original)
+    result = run_pipeline(original, pack_id)
 
     (out_dir / "observations.json").write_text(json.dumps(result["observations"], indent=2), encoding="utf-8")
     (out_dir / "recommendations.json").write_text(json.dumps(result["recommendations"], indent=2), encoding="utf-8")
@@ -26,6 +27,7 @@ def main() -> None:
     run_p = sub.add_parser("run")
     run_p.add_argument("input", type=Path)
     run_p.add_argument("--out", type=Path, default=Path("artifacts/run"))
+    run_p.add_argument("--pack", choices=sorted(PACKS), default=DEFAULT_PACK_ID)
     args = parser.parse_args()
     if args.cmd == "run":
-        run(args.input, args.out)
+        run(args.input, args.out, args.pack)

@@ -18,6 +18,11 @@ Stepping is inspection, not execution — the artifact trail is the product.
   afterwards.
 - "Download artifact trail" produces a zip whose six files are byte-identical
   to what `python -m praxis run` writes.
+- Packs are selectable in the Input panel; the pack list comes from the Python
+  registry (`praxis/packs.py`) via the worker, so the UI can never drift from
+  the harness. Bundled examples each select their matching pack.
+- Step 7 (Compare) shows original and final side by side with proportional
+  scroll sync.
 
 ## Build & run locally
 
