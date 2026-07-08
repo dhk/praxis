@@ -28,6 +28,16 @@ Each run creates an artifact directory containing machine-readable JSON and huma
 python -m praxis run examples/concise_scientific_writing/input.md --out artifacts/demo
 ```
 
+Packs are selectable with `--pack` (see `praxis/packs.py` for the registry):
+
+```bash
+python -m praxis run examples/claude_skill/SKILL.md --pack claude_skill_authoring --out artifacts/skill
+```
+
+The `claude_skill_authoring` pack encodes corpus-measured best practices from
+the [skill-map](https://github.com/dhk/skill-map) study of ~5,000 crawled
+Claude skills.
+
 ## Web viewer
 
 A static, browser-only viewer for the artifact trail lives in [`web/`](web/):

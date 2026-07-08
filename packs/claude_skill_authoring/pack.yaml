@@ -1,0 +1,30 @@
+id: claude_skill_authoring
+version: 0.1.0
+title: Claude Skill Authoring
+# Grounded in the skill-map study of ~5,000 crawled skills
+# (https://github.com/dhk/skill-map, docs/best-practices.md).
+transformations:
+  - id: SKL-001
+    title: Remove instruction filler
+    safety: safe
+    kind: phrase_delete
+  - id: SKL-002
+    title: Prefer plain verbs in instructions
+    safety: low_risk
+    kind: phrase_replace
+  - id: SKL-003
+    title: Open the description with an action verb
+    safety: review
+    kind: flag
+  - id: SKL-004
+    title: State when to use the skill
+    safety: review
+    kind: flag
+  - id: SKL-005
+    title: State when NOT to use the skill
+    safety: review
+    kind: flag
+  - id: SKL-006
+    title: Scope Bash tool grants
+    safety: review
+    kind: flag

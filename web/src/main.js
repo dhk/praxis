@@ -1,20 +1,31 @@
-import { startEngine, onEngineReady, engineStatus, runPipeline, downloadTrailZip } from './engine.js';
+import { startEngine, onEngineReady, engineStatus, enginePacks, runPipeline, downloadTrailZip } from './engine.js';
 import { renderMarkdown, escapeHtml } from './markdown.js';
 
 /* ── State ─────────────────────────────────────────── */
+
+const DEFAULT_PACK = 'concise_scientific_writing';
 
 const state = {
   source: '',
   trail: null,        // last completed run's artifact trail
   runSource: '',      // the source that produced `trail`
-  stale: false,       // input edited since last run
+  runPack: '',        // the pack that produced `trail`
+  stale: false,       // input or pack changed since last run
   step: 1,
   selectedObs: null,
   transformTab: 'diff',
   running: false,
   error: null,
-  pack: { id: 'concise_scientific_writing', version: '', count: 0 },
+  packId: DEFAULT_PACK,
 };
+
+const EXAMPLES = [
+  { id: 'technical-note', label: 'Technical note (repo example)', pack: DEFAULT_PACK },
+  { id: 'hotaling-2020', label: 'Concise writing — after Hotaling (2020)', pack: DEFAULT_PACK },
+  { id: 'drift-study', label: 'Model drift study', pack: DEFAULT_PACK },
+  { id: 'claude-skill', label: 'Claude skill (SKILL.md)', pack: 'claude_skill_authoring' },
+  { id: 'resume', label: 'Resume', pack: 'resume_writing' },
+];
 
 const SAFETY_LABEL = { safe: 'SAFE', low_risk: 'LOW RISK', review: 'REVIEW' };
 
@@ -27,6 +38,7 @@ const STEPS = [
   { n: 4, name: 'Transform' },
   { n: 5, name: 'Validate' },
   { n: 6, name: 'Report' },
+  { n: 7, name: 'Compare' },
 ];
 
 const stepperEl = document.getElementById('stepper');
@@ -57,6 +69,7 @@ function badgeFor(step) {
     }
     case 5: return t.validation.status;
     case 6: return 'ready';
+    case 7: return `${t.metrics.before.words} → ${t.metrics.after.words} words`;
     default: return '';
   }
 }
@@ -99,9 +112,13 @@ function renderInput() {
       : '<span class="engine-chip mono">loading engine…</span>';
   const runLabel = state.running ? 'Running…' : eng.status === 'loading' ? 'Loading engine…' : 'Run pipeline';
   const canRun = eng.status === 'ready' && !state.running && state.source.trim().length > 0;
-  const packLine = state.pack.version
-    ? `Pack <code>${state.pack.id}</code> · v${state.pack.version} · ${state.pack.count} transformations`
-    : `Pack <code>${state.pack.id}</code>`;
+  const packs = enginePacks();
+  const selected = packs.find((p) => p.id === state.packId);
+  const packOptions = packs.length
+    ? packs.map((p) => `<option value="${p.id}"${p.id === state.packId ? ' selected' : ''}>${escapeHtml(p.title)}</option>`).join('')
+    : `<option value="${DEFAULT_PACK}" selected>${DEFAULT_PACK}</option>`;
+  const packDetail = selected ? ` · v${selected.version} · ${selected.transformations} transformations` : '';
+  const exampleOptions = EXAMPLES.map((e) => `<option value="${e.id}">${escapeHtml(e.label)}</option>`).join('');
 
   panelEl.innerHTML = `
     ${passHead(1, 'Input', 'Paste or upload the source, watch live metrics, confirm the pack in effect, then run. The pipeline runs once, in your browser — the document never leaves it.')}
@@ -111,7 +128,11 @@ function renderInput() {
       <div class="input-actions">
         <button class="btn" id="upload-btn">Upload file</button>
         <input type="file" id="file-input" accept=".md,.txt,text/markdown,text/plain" hidden>
-        <button class="btn" id="example-btn">Load example</button>
+        <label class="select-wrap"><span class="label">Example</span>
+          <select id="example-select" class="select">
+            <option value="" selected disabled>Load example…</option>
+            ${exampleOptions}
+          </select></label>
         ${engChip}
       </div>
       <textarea id="source" class="source-input" spellcheck="false"
@@ -123,7 +144,10 @@ function renderInput() {
         <span class="metric">avg ${m.average_sentence_words} words/sentence</span>
       </div>
       <div class="run-row">
-        <span class="pack-line">${packLine}</span>
+        <span class="pack-line">Pack
+          <select id="pack-select" class="select" ${packs.length ? '' : 'disabled'}>${packOptions}</select>
+          <span class="pack-detail mono">${packDetail}</span>
+        </span>
         <button class="btn primary" id="run-btn" ${canRun ? '' : 'disabled'}>${runLabel}</button>
       </div>
     </div>`;
@@ -131,7 +155,7 @@ function renderInput() {
   const textarea = document.getElementById('source');
   textarea.addEventListener('input', () => {
     state.source = textarea.value;
-    const nowStale = Boolean(state.trail) && state.source !== state.runSource;
+    const nowStale = Boolean(state.trail) && (state.source !== state.runSource || state.packId !== state.runPack);
     if (nowStale !== state.stale) {
       state.stale = nowStale;   // greys out / re-enables steps 2–6
       renderStepper();
@@ -157,16 +181,24 @@ function renderInput() {
     const file = e.target.files && e.target.files[0];
     if (file) setSource(await file.text());
   });
-  document.getElementById('example-btn').addEventListener('click', async () => {
-    const res = await fetch(new URL('../example.md', import.meta.url));
+  document.getElementById('example-select').addEventListener('change', async (e) => {
+    const example = EXAMPLES.find((x) => x.id === e.target.value);
+    if (!example) return;
+    const res = await fetch(new URL(`../examples/${example.id}.md`, import.meta.url));
+    state.packId = example.pack;   // an example selects its matching pack
     setSource(await res.text());
+  });
+  document.getElementById('pack-select').addEventListener('change', (e) => {
+    state.packId = e.target.value;
+    state.stale = Boolean(state.trail) && (state.source !== state.runSource || state.packId !== state.runPack);
+    render();
   });
   document.getElementById('run-btn').addEventListener('click', run);
 }
 
 function setSource(text) {
   state.source = text;
-  state.stale = Boolean(state.trail) && text !== state.runSource;
+  state.stale = Boolean(state.trail) && (text !== state.runSource || state.packId !== state.runPack);
   state.error = null;
   render();
 }
@@ -192,8 +224,9 @@ async function run() {
   state.error = null;
   render();
   try {
-    state.trail = await runPipeline(state.source);
+    state.trail = await runPipeline(state.source, state.packId);
     state.runSource = state.source;
+    state.runPack = state.packId;
     state.stale = false;
     state.selectedObs = null;
     state.step = 2;
@@ -299,7 +332,7 @@ function scrollObservationIntoView(which) {
 function renderRecommend() {
   const t = state.trail;
   const rows = t.recommendations.map((rec) => {
-    const isReview = rec.action === 'review_long_sentence';
+    const isReview = rec.safety === 'review';
     const beforeAfter = isReview
       ? '<span class="no-change">no text change proposed</span>'
       : `<span class="before-after"><code>${escapeHtml(rec.before)}</code><span class="arrow">→</span><code>${escapeHtml(rec.after) || '<em>∅</em>'}</code></span>`;
@@ -313,7 +346,7 @@ function renderRecommend() {
   }).join('');
 
   panelEl.innerHTML = `
-    ${passHead(3, 'Recommend', 'Every recommendation links back to its observation. Rows with action review_long_sentence propose no text change — a human decides.')}
+    ${passHead(3, 'Recommend', 'Every recommendation links back to its observation. Review rows propose no text change — a human decides.')}
     ${t.recommendations.length === 0
       ? '<div class="empty-note">No recommendations — nothing to change.</div>'
       : `<div class="card"><div class="table-wrap"><table class="data">
@@ -460,13 +493,46 @@ function renderReport() {
   document.getElementById('dl-trail').addEventListener('click', async (e) => {
     e.target.disabled = true;
     try {
-      const bytes = await downloadTrailZip(state.runSource);
+      const bytes = await downloadTrailZip(state.runSource, state.runPack);
       download('praxis-artifact-trail.zip', new Blob([bytes], { type: 'application/zip' }));
     } finally {
       const b = document.getElementById('dl-trail');
       if (b) b.disabled = false;
     }
   });
+}
+
+/* ── 7 · Compare ──────────────────────────────────── */
+
+function syncScroll(a, b) {
+  let lock = false;
+  const follow = (from, to) => () => {
+    if (lock) return;
+    lock = true;
+    const range = from.scrollHeight - from.clientHeight;
+    const ratio = range > 0 ? from.scrollTop / range : 0;
+    to.scrollTop = ratio * (to.scrollHeight - to.clientHeight);
+    requestAnimationFrame(() => { lock = false; });
+  };
+  a.addEventListener('scroll', follow(a, b));
+  b.addEventListener('scroll', follow(b, a));
+}
+
+function renderCompare() {
+  const t = state.trail;
+  panelEl.innerHTML = `
+    ${passHead(7, 'Compare', 'Original and final documents side by side. Scrolling either pane scrolls the other proportionally.')}
+    <div class="compare-grid">
+      <div class="compare-col">
+        <div class="label">Original · ${t.metrics.before.words} words</div>
+        <div class="source-view compare-pane" id="cmp-original">${escapeHtml(state.runSource)}</div>
+      </div>
+      <div class="compare-col">
+        <div class="label">Final · ${t.metrics.after.words} words</div>
+        <div class="source-view compare-pane" id="cmp-final">${escapeHtml(t.final)}</div>
+      </div>
+    </div>`;
+  syncScroll(document.getElementById('cmp-original'), document.getElementById('cmp-final'));
 }
 
 /* ── Render loop ──────────────────────────────────── */
@@ -481,27 +547,15 @@ function render() {
     case 4: renderTransform(); break;
     case 5: renderValidate(); break;
     case 6: renderReport(); break;
+    case 7: renderCompare(); break;
     default: renderInput();
   }
 }
 
 /* ── Boot ─────────────────────────────────────────── */
 
-async function loadPackInfo() {
-  try {
-    const res = await fetch(new URL('../py/pack.yaml', import.meta.url));
-    const text = await res.text();
-    const id = /^id:\s*(\S+)/m.exec(text);
-    const version = /^version:\s*(\S+)/m.exec(text);
-    const count = (text.match(/^\s+-\s+id:/gm) || []).length;
-    state.pack = { id: id ? id[1] : state.pack.id, version: version ? version[1] : '', count };
-    if (state.step === 1) render();
-  } catch { /* pack line stays minimal */ }
-}
-
 startEngine();               // load Pyodide in the background while the user types
-onEngineReady(() => { if (state.step === 1) render(); });
-loadPackInfo();
+onEngineReady(() => { if (state.step === 1) render(); });   // also delivers pack metadata
 render();
 
 if ('serviceWorker' in navigator) {

@@ -1,0 +1,28 @@
+id: resume_writing
+version: 0.1.0
+title: Resume Writing
+transformations:
+  - id: RES-001
+    title: Lead with action verbs
+    safety: low_risk
+    kind: phrase_replace
+  - id: RES-002
+    title: Remove empty intensifiers
+    safety: safe
+    kind: phrase_delete
+  - id: RES-003
+    title: Prefer plain verbs
+    safety: low_risk
+    kind: phrase_replace
+  - id: RES-004
+    title: Avoid first-person pronouns
+    safety: review
+    kind: flag
+  - id: RES-005
+    title: Quantify the achievement
+    safety: review
+    kind: flag
+  - id: RES-006
+    title: Show, don't self-describe
+    safety: review
+    kind: flag

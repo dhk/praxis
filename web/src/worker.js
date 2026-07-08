@@ -12,6 +12,7 @@ import zipfile
 import difflib
 
 from praxis.pipeline import run_pipeline
+from praxis.packs import list_packs
 from praxis.validation import protected_tokens
 
 def _word_diff(a, b):
@@ -24,17 +25,17 @@ def _word_diff(a, b):
         for tag, i1, i2, j1, j2 in sm.get_opcodes()
     ]
 
-def run_json(source):
-    result = run_pipeline(source)
+def run_json(source, pack_id):
+    result = run_pipeline(source, pack_id)
     result["ui"] = {
         "protected_tokens": sorted(protected_tokens(source)),
         "diff": _word_diff(source, result["final"]),
     }
     return json.dumps(result)
 
-def make_zip(source):
+def make_zip(source, pack_id):
     """Zip of the six artifact files, byte-identical to a CLI run's output."""
-    r = run_pipeline(source)
+    r = run_pipeline(source, pack_id)
     artifacts = [
         ("observations.json", json.dumps(r["observations"], indent=2)),
         ("recommendations.json", json.dumps(r["recommendations"], indent=2)),
@@ -68,20 +69,24 @@ const ready = (async () => {
 })();
 
 ready.then(
-  () => self.postMessage({ type: 'ready' }),
+  (pyodide) => self.postMessage({
+    type: 'ready',
+    packs: JSON.parse(pyodide.runPython('json.dumps(list_packs())')),
+  }),
   (err) => self.postMessage({ type: 'init-error', message: String(err) }),
 );
 
 self.onmessage = async (event) => {
-  const { id, op, source } = event.data;
+  const { id, op, source, pack } = event.data;
   try {
     const pyodide = await ready;
     pyodide.globals.set('_SOURCE', source);
+    pyodide.globals.set('_PACK', pack);
     if (op === 'run') {
-      const json = pyodide.runPython('run_json(_SOURCE)');
+      const json = pyodide.runPython('run_json(_SOURCE, _PACK)');
       self.postMessage({ type: 'result', id, result: JSON.parse(json) });
     } else if (op === 'zip') {
-      const bytes = pyodide.runPython('make_zip(_SOURCE)').toJs();
+      const bytes = pyodide.runPython('make_zip(_SOURCE, _PACK)').toJs();
       self.postMessage({ type: 'zip', id, bytes }, [bytes.buffer]);
     }
   } catch (err) {
