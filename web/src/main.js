@@ -503,10 +503,22 @@ function renderReport() {
   const t = state.trail;
   const hasPrompt = Boolean(t.ui.prompt);
   const sections = splitReportSections(t.report);
+  // The review prompt isn't part of report.md — it's a separate artifact —
+  // but showing it as a tab here (rather than copy-only) lets you read it
+  // before deciding whether to hand it off. Rendered raw, not as markdown:
+  // it's meant to be copied verbatim, and its numbered lists and
+  // blockquotes would just get flattened by the simple markdown renderer.
+  if (hasPrompt) sections.push({ title: 'Review Prompt', body: t.ui.prompt, raw: true });
+
   if (!sections.some((s) => s.title === state.reportTab)) {
     state.reportTab = sections[0]?.title;
   }
   const active = sections.find((s) => s.title === state.reportTab) || sections[0];
+  const activeBody = active
+    ? (active.raw
+        ? `<div class="source-view">${escapeHtml(active.body)}</div>`
+        : `<div class="card"><div class="report-body">${renderMarkdown(active.body)}</div></div>`)
+    : `<div class="card"><div class="report-body">${renderMarkdown(t.report)}</div></div>`;
 
   panelEl.innerHTML = `
     ${passHead(6, 'Report', 'The rendered report: metrics before and after, the validation summary, the transformation log, and the final document.')}
@@ -520,7 +532,7 @@ function renderReport() {
     <div class="tabs" role="tablist">
       ${sections.map((s) => `<button class="tab" role="tab" data-report-tab="${escapeHtml(s.title)}" aria-selected="${s.title === active.title}">${escapeHtml(s.title)}</button>`).join('')}
     </div>
-    <div class="card"><div class="report-body">${renderMarkdown(active ? active.body : t.report)}</div></div>`;
+    ${activeBody}`;
 
   panelEl.querySelectorAll('[data-report-tab]').forEach((el) => {
     el.addEventListener('click', () => { state.reportTab = el.dataset.reportTab; render(); });
