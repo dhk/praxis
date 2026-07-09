@@ -54,6 +54,34 @@ def test_resume_writing_pack():
     for fact in ("2021", "23%", "$180K", "6.5", "90"):
         assert fact in final
 
+def test_same_document_treated_differently_by_each_pack():
+    # Every pack test above uses a different, bespoke example file tailored
+    # to that one pack, so none of them actually prove pack *selection* is
+    # what drives the outcome, as opposed to each example simply tripping
+    # its own pack's rules. Run one shared sentence — built to trip a
+    # distinct rule in each pack — through all three and confirm they
+    # diverge, with no cross-contamination between packs' rule ids.
+    text = "It should be noted that I simply utilize this in order to succeed."
+    pack_ids = ("concise_scientific_writing", "claude_skill_authoring", "resume_writing")
+    results = {pack_id: run_pipeline(text, pack_id) for pack_id in pack_ids}
+
+    rule_ids = {pack_id: sorted({o["rule_id"] for o in r["observations"]})
+                for pack_id, r in results.items()}
+    assert rule_ids["concise_scientific_writing"] == ["CSW-001", "CSW-002"]
+    assert rule_ids["claude_skill_authoring"] == ["SKL-001", "SKL-002"]
+    assert rule_ids["resume_writing"] == ["RES-004"]
+
+    prefixes = {"concise_scientific_writing": "CSW-", "claude_skill_authoring": "SKL-", "resume_writing": "RES-"}
+    for pack_id, ids in rule_ids.items():
+        assert all(rid.startswith(prefixes[pack_id]) for rid in ids), \
+            f"{pack_id} observed a rule id outside its own prefix: {ids}"
+
+    finals = {pack_id: r["final"] for pack_id, r in results.items()}
+    assert finals["concise_scientific_writing"] == "I simply utilize this to succeed."
+    assert finals["claude_skill_authoring"] == "It should be noted that I use this in order to succeed."
+    assert finals["resume_writing"] == text  # RES-004 is review-only; nothing applied
+    assert len(set(finals.values())) == 3  # one input, three genuinely different outputs
+
 def test_pack_registry_lists_all_packs():
     from praxis.packs import list_packs
     packs = {p["id"]: p for p in list_packs()}
