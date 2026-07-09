@@ -252,7 +252,7 @@ function observationRanges() {
       ranges.push({ start: Number(m[1]), end: Number(m[2]), obs });
     } else {
       const at = text.indexOf(obs.evidence, cursor);
-      if (at !== -1) { ranges.push({ start: at, end: at + obs.evidence.length, obs }); cursor = at; }
+      if (at !== -1) { ranges.push({ start: at, end: at + obs.evidence.length, obs }); cursor = at + obs.evidence.length; }
     }
   }
   return ranges;
@@ -370,25 +370,37 @@ function normalize(s) {
   return s.replace(/\s+/g, ' ').trim().toLowerCase();
 }
 
-function safetyForSegment(a, b) {
+// Matches a diff segment back to the applied transformation that produced it.
+// `usedTransformIds` is reset per render (see renderDiff) so a transformation
+// already claimed by an earlier segment can't also be claimed by a later one
+// — otherwise a phrase that occurs twice in the document (e.g. two identical
+// "in order to"s) would have every occurrence colored by whichever
+// transformation record happened to match first.
+function safetyForSegment(a, b, usedTransformIds) {
   const na = normalize(a);
   const nb = normalize(b);
+  let fallback = null;
   for (const t of state.trail.transformations) {
-    if (!t.applied) continue;
+    if (!t.applied || usedTransformIds.has(t.id)) continue;
     const tb = normalize(t.before);
     const ta = normalize(t.after);
-    if (na && (na === tb || na.includes(tb) || tb.includes(na))) return t.safety;
-    if (nb && ta && (nb === ta || nb.includes(ta))) return t.safety;
+    const exact = (na && nb) ? (na === tb && nb === ta) : (na ? na === tb : nb === ta);
+    if (exact) { usedTransformIds.add(t.id); return t.safety; }
+    if (!fallback && ((na && tb && (na.includes(tb) || tb.includes(na))) || (nb && ta && nb.includes(ta)))) {
+      fallback = t;
+    }
   }
+  if (fallback) { usedTransformIds.add(fallback.id); return fallback.safety; }
   return 'other';
 }
 
 function renderDiff() {
   const { diff } = state.trail.ui;
+  const usedTransformIds = new Set();
   let html = '';
   for (const seg of diff) {
     if (seg.op === 'equal') { html += escapeHtml(seg.a); continue; }
-    const safety = safetyForSegment(seg.a, seg.b);
+    const safety = safetyForSegment(seg.a, seg.b, usedTransformIds);
     if (seg.a) html += `<del class="${safety}">${escapeHtml(seg.a)}</del>`;
     if (seg.b) html += `<ins class="${safety}">${escapeHtml(seg.b)}</ins>`;
   }

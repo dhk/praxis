@@ -2,7 +2,11 @@ import re
 from .models import Transformation
 
 def protected_tokens(text: str) -> set[str]:
-    patterns = [r"https?://\S+", r"\b\d+(?:\.\d+)?%?\b", r"\[[^\]]+\]", r"\([^)]*\d{4}[^)]*\)"]
+    # The percent sign has its own alternative (tried first) because a trailing
+    # `\b` can never match right after `%` when it's followed by whitespace or
+    # punctuation (both non-word chars) — requiring it there silently drops the
+    # `%` from every "50% " in ordinary prose.
+    patterns = [r"https?://\S+", r"\b\d+(?:\.\d+)?%|\b\d+(?:\.\d+)?\b", r"\[[^\]]+\]", r"\([^)]*\d{4}[^)]*\)"]
     tokens: set[str] = set()
     for pattern in patterns:
         tokens.update(re.findall(pattern, text))

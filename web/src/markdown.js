@@ -25,7 +25,11 @@ function isTableSeparator(line) {
 }
 
 function cells(line) {
-  return line.trim().replace(/^\||\|$/g, '').split('|').map((c) => c.trim());
+  // Split on '|' that isn't backslash-escaped (report.py escapes literal '|'
+  // in cell content as '\|' so it can't be mistaken for a column delimiter),
+  // then unescape '\|' and '\\' within each cell.
+  const trimmed = line.trim().replace(/^\||\|$/g, '');
+  return trimmed.split(/(?<!\\)\|/).map((c) => c.trim().replace(/\\\|/g, '|').replace(/\\\\/g, '\\'));
 }
 
 export function renderMarkdown(md) {

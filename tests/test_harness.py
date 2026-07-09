@@ -81,3 +81,53 @@ def test_unknown_pack_rejected():
     import pytest
     with pytest.raises(KeyError):
         run_pipeline("Some text.", "nonexistent_pack")
+
+def test_transform_never_applies_an_unobserved_match():
+    # One rule's deletion used to be able to weld two fragments into a fresh
+    # match for a later rule that was never present in (and never observed
+    # against) the original text. 'In order' + 'it should be noted that ' +
+    # 'to run' becomes 'In order to run' only after CSW-001 deletes the
+    # middle phrase; CSW-002 must not then rewrite a match that only exists
+    # in the intermediate, already-mutated string.
+    text = "In order it should be noted that to run the test, do X."
+    result = run_pipeline(text)
+    observed_rule_ids = {o["rule_id"] for o in result["observations"]}
+    applied_rule_ids = {t["rule_id"] for t in result["transformations"] if t["applied"]}
+    assert applied_rule_ids <= observed_rule_ids
+    assert "In order to" not in text or "in order to run" not in result["final"].lower()
+    assert result["final"] == "In order to run the test, do X."
+
+def test_transformation_recommendation_id_is_real():
+    source = Path("examples/resume/input.md").read_text(encoding="utf-8")
+    result = run_pipeline(source, "resume_writing")
+    rec_ids = {r["id"] for r in result["recommendations"]}
+    for t in result["transformations"]:
+        assert t["recommendation_id"] in rec_ids
+
+def test_validation_protects_percent_sign():
+    from praxis.validation import protected_tokens, validate
+    original = "Revenue grew 23% year over year."
+    stripped = "Revenue grew 23 year over year."  # simulates a rule eating the '%'
+    assert "23%" in protected_tokens(original)
+    result = validate(original, stripped, [])
+    assert result["status"] == "fail"
+    assert "23%" in result["checks"]["missing_protected_tokens"]
+
+def test_report_escapes_pipes_and_newlines_in_table_cells():
+    text = ("It should be noted that the pipeline handles a | b | c cases well and this "
+            "sentence must be long enough to exceed the thirty five word threshold used "
+            "by the long sentence flag rule so it gets flagged for review in the observe "
+            "pass of the harness today.")
+    result = run_pipeline(text)
+    log_start = result["report"].index("## Transformation Diff Log")
+    log_end = result["report"].index("## Final Document")
+    log_table = result["report"][log_start:log_end]
+    data_rows = [ln for ln in log_table.splitlines() if ln.startswith("| T-")]
+    assert len(data_rows) == 2
+    import re
+    for row in data_rows:
+        delimiters = re.findall(r"(?<!\\)\|", row)
+        assert len(delimiters) == 9  # 8 columns -> 9 unescaped delimiters
+    flagged_row = next(row for row in data_rows if row.startswith("| T-002"))
+    assert "\\|" in flagged_row  # the raw ' | ' from the evidence was escaped, not split on
+    assert "\n" not in "".join(data_rows)
