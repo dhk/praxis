@@ -537,7 +537,7 @@ function renderReport() {
     <div class="report-actions">
       <button class="btn" id="copy-final">Copy final document</button>
       <button class="btn" id="dl-final">Download final.md</button>
-      ${hasPrompt ? '<button class="btn" id="copy-prompt" title="Markdown handoff of the flagged items, ready to paste into Claude">Copy review prompt</button>' : ''}
+      ${hasPrompt ? '<button class="btn" id="copy-prompt" title="Markdown handoff of the flagged items, ready to paste into Claude">Copy for LLM</button>' : ''}
       <button class="btn primary" id="dl-trail">Download artifact trail</button>
     </div>
     ${hasPrompt ? '<p class="prompt-hint">The review prompt packages every flagged item — evidence, reasons, protected tokens, and the document — as Markdown for an LLM (or a colleague) to propose resolutions. The pipeline itself never calls one.</p>' : ''}
@@ -554,7 +554,7 @@ function renderReport() {
     document.getElementById('copy-prompt').addEventListener('click', async (e) => {
       await navigator.clipboard.writeText(t.ui.prompt);
       e.target.textContent = 'Copied ✓';
-      setTimeout(() => { const b = document.getElementById('copy-prompt'); if (b) b.textContent = 'Copy review prompt'; }, 1500);
+      setTimeout(() => { const b = document.getElementById('copy-prompt'); if (b) b.textContent = 'Copy for LLM'; }, 1500);
     });
   }
 
