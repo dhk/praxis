@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+
+<helmet>
+  <link rel="stylesheet" href="_ds/dhk-design-system-c5bcb57b-ed22-46a6-b9d1-f03f557cce83/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/dhk-design-system-c5bcb57b-ed22-46a6-b9d1-f03f557cce83/tokens/colors.css">
+  <link rel="stylesheet" href="_ds/dhk-design-system-c5bcb57b-ed22-46a6-b9d1-f03f557cce83/tokens/typography.css">
+  <link rel="stylesheet" href="_ds/dhk-design-system-c5bcb57b-ed22-46a6-b9d1-f03f557cce83/tokens/spacing.css">
+  <link rel="stylesheet" href="_ds/dhk-design-system-c5bcb57b-ed22-46a6-b9d1-f03f557cce83/tokens/layout.css">
+  <link rel="stylesheet" href="_ds/dhk-design-system-c5bcb57b-ed22-46a6-b9d1-f03f557cce83/tokens/base.css">
+  <link rel="stylesheet" href="_ds/dhk-design-system-c5bcb57b-ed22-46a6-b9d1-f03f557cce83/styles.css">
+  <script src="_ds/dhk-design-system-c5bcb57b-ed22-46a6-b9d1-f03f557cce83/_ds_bundle.js"></script>
+  <style>
+    body { background: var(--bg); margin: 0; }
+    a { color: var(--accent); }
+    a:hover { color: var(--accent-hover); }
+    ::selection { background: var(--tint-study); }
+  </style>
+</helmet>
+
+<div style="font-family: var(--font-sans); color: var(--text); background: var(--bg); min-height: 100vh;">
+<div style="max-width: 1040px; margin: 0 auto; padding: 56px 24px 100px;">
+
+  <!-- HERO -->
+  <div style="font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em; color: var(--accent); margin-bottom: 16px;">praxis / viewer /</div>
+  <h1 style="font-size: clamp(32px, 4vw, 46px); font-weight: 700; letter-spacing: -0.02em; line-height: 1.08; max-width: 720px;">A viewer for the artifact trail</h1>
+  <p style="font-size: 16px; line-height: 1.7; color: var(--text-muted); max-width: 660px; margin-top: 16px;">Enter a document, run the pipeline once, and step through each pass and its artifacts. Stepping is inspection, not execution &mdash; the artifact trail is the product. No backend, no accounts: <strong style="color: var(--text);">documents never leave the browser.</strong></p>
+
+  <!-- STEPPER NAV -->
+  <div style="display: flex; align-items: stretch; gap: 6px; flex-wrap: wrap; margin-top: 36px;">
+    <sc-for list="{{ navSteps }}" as="s" hint-placeholder-count="6">
+      <div
+        onClick="{{ s.onClick }}"
+        style="{{ s.style }}"
+      >
+        <div style="font-family: var(--font-mono); font-size: 12px;">{{ s.num }} {{ s.label }}</div>
+        <div style="font-family: var(--font-mono); font-size: 10px; margin-top: 4px; opacity: 0.85;">{{ s.badge }}</div>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="height: 1px; background: var(--border); margin: 28px 0 40px;"></div>
+
+  <!-- STEP 1 — INPUT -->
+  <sc-if value="{{ isStep1 }}" hint-placeholder-val="{{ true }}">
+    <div>
+      <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px;">
+        <span style="font-family: var(--font-mono); font-size: 14px; color: var(--accent);">1</span>
+        <h2 style="font-size: 24px; font-weight: 600;">Input</h2>
+      </div>
+      <p style="font-size: 15px; line-height: 1.6; color: var(--text-muted); max-width: 660px; margin-bottom: 20px;">Paste or upload the source, confirm the pack in effect, then run. The pipeline runs once, in your browser &mdash; the document never leaves it.</p>
+
+      <div style="background: var(--bg2); border: 1px solid var(--border); border-radius: 4px; padding: 18px;">
+
+        <!-- single action row: load controls + pack + run, together -->
+        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px;">
+          <x-import component-from-global-scope="DHKDesignSystem_c5bcb5.Button" variant="ghost" onClick="{{ triggerUpload }}" hint-size="120px,34px">Upload file</x-import>
+          <select value="{{ exampleKey }}" onChange="{{ onExampleChange }}" style="font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; padding: 8px 10px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg); color: var(--text-muted);">
+            <option value="">Load example&hellip;</option>
+            <option value="resume">Resume &mdash; Jordan Reyes</option>
+            <option value="essay">Essay &mdash; dashboards</option>
+          </select>
+          <input type="file" accept=".md,.txt" ref="{{ fileInputRef }}" onChange="{{ onFileChange }}" style="display: none;">
+          <span style="flex: 1;"></span>
+          <span style="display: flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 12px; color: var(--text-dim); white-space: nowrap;">Pack
+            <select value="{{ packKey }}" onChange="{{ onPackChange }}" style="font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.02em; padding: 6px 8px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg); color: var(--text-muted);">
+              <sc-for list="{{ packOptions }}" as="p" hint-placeholder-count="2">
+                <option value="{{ p.key }}">{{ p.label }}</option>
+              </sc-for>
+            </select>
+            <span>&middot; {{ packVersion }} &middot; {{ packCount }} transformations</span>
+          </span>
+          <x-import component-from-global-scope="DHKDesignSystem_c5bcb5.Button" variant="primary" onClick="{{ runPipeline }}" hint-size="140px,34px">Run pipeline</x-import>
+        </div>
+
+        <sc-if value="{{ isEdited }}" hint-placeholder-val="{{ false }}">
+          <div style="font-family: var(--font-mono); font-size: 11px; color: var(--accent-orange); margin-bottom: 10px;">Source changed since the last run &mdash; steps 2&ndash;6 are stale. Run again to refresh them.</div>
+        </sc-if>
+
+        <textarea
+          value="{{ source }}"
+          onChange="{{ onSourceInputChange }}"
+          placeholder="Paste Markdown source, or drag a .md / .txt file here&hellip;"
+          style="width: 100%; box-sizing: border-box; min-height: 320px; border: 1px solid var(--border-light); border-radius: 4px; background: var(--bg); padding: 14px; font-family: var(--font-mono); font-size: 13px; line-height: 1.7; color: var(--text); resize: vertical;"
+        ></textarea>
+
+        <div style="display: flex; gap: 18px; flex-wrap: wrap; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border-light);">
+          <span style="font-family: var(--font-mono); font-size: 12px; color: var(--text-dim);">{{ metricsLive.chars }} chars</span>
+          <span style="font-family: var(--font-mono); font-size: 12px; color: var(--text-dim);">{{ metricsLive.words }} words</span>
+          <span style="font-family: var(--font-mono); font-size: 12px; color: var(--text-dim);">{{ metricsLive.sentences }} sentences</span>
+          <span style="font-family: var(--font-mono); font-size: 12px; color: var(--text-dim);">avg {{ metricsLive.avg }} words/sentence</span>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- STEP 2 — OBSERVE -->
+  <sc-if value="{{ isStep2 }}" hint-placeholder-val="{{ false }}">
+    <div>
+      <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px;">
+        <span style="font-family: var(--font-mono); font-size: 14px; color: var(--accent);">2</span>
+        <h2 style="font-size: 24px; font-weight: 600;">Observe</h2>
+      </div>
+      <p style="font-size: 15px; line-height: 1.6; color: var(--text-muted); max-width: 660px; margin-bottom: 20px;">Read-only source with each observation's evidence highlighted and colored by safety.</p>
+
+      <div style="background: var(--bg2); border: 1px solid var(--border); border-radius: 4px; padding: 18px; display: grid; grid-template-columns: 1.6fr 1fr; gap: 16px;">
+        <div style="border: 1px solid var(--border-light); border-radius: 4px; background: var(--bg); padding: 16px; font-family: var(--font-mono); font-size: 13px; line-height: 1.9; color: var(--text-muted); white-space: pre-wrap; max-height: 520px; overflow-y: auto;">
+          <sc-for list="{{ observeSegments }}" as="seg" hint-placeholder-count="4"><sc-if value="{{ seg.isText }}" hint-placeholder-val="{{ true }}"><span>{{ seg.text }}</span></sc-if><sc-if value="{{ seg.isMatch }}" hint-placeholder-val="{{ false }}"><span style="{{ seg.style }}" title="{{ seg.label }}">{{ seg.text }}</span></sc-if></sc-for>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px; max-height: 520px; overflow-y: auto;">
+          <sc-for list="{{ matches }}" as="m" hint-placeholder-count="4">
+            <div style="border: 1px solid var(--border-light); border-radius: 4px; background: var(--bg); padding: 10px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                <span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);">{{ m.id }}</span>
+                <span style="font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; padding: 2px 7px; border-radius: 4px; background: {{ m.bg }}; color: {{ m.color }};">{{ m.tag }}</span>
+              </div>
+              <div style="font-size: 13px; color: var(--text); margin-top: 6px;">&ldquo;{{ m.beforeDisplay }}&rdquo;</div>
+              <div style="font-size: 12px; color: var(--text-dim); margin-top: 2px;">{{ m.label }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- STEP 3 — RECOMMEND -->
+  <sc-if value="{{ isStep3 }}" hint-placeholder-val="{{ false }}">
+    <div>
+      <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px;">
+        <span style="font-family: var(--font-mono); font-size: 14px; color: var(--accent);">3</span>
+        <h2 style="font-size: 24px; font-weight: 600;">Recommend</h2>
+      </div>
+      <p style="font-size: 15px; line-height: 1.6; color: var(--text-muted); max-width: 660px; margin-bottom: 20px;">Every observation becomes a recommendation. Review-flagged rows propose no text change.</p>
+
+      <div style="background: var(--bg2); border: 1px solid var(--border); border-radius: 4px; padding: 18px;">
+        <div style="border: 1px solid var(--border-light); border-radius: 4px; background: var(--bg); overflow: hidden;">
+          <div style="display: grid; grid-template-columns: 0.7fr 1.1fr 1.8fr 0.8fr; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); background: var(--bg2); border-bottom: 1px solid var(--border);">
+            <span style="padding: 10px 12px;">Obs</span><span style="padding: 10px 12px;">Rule</span><span style="padding: 10px 12px;">Before &rarr; after</span><span style="padding: 10px 12px;">Safety</span>
+          </div>
+          <sc-for list="{{ matches }}" as="m" hint-placeholder-count="4">
+            <div style="display: grid; grid-template-columns: 0.7fr 1.1fr 1.8fr 0.8fr; font-size: 13px; border-bottom: 1px solid var(--border-light); align-items: center; background: {{ m.rowBg }};">
+              <span style="padding: 10px 12px; font-family: var(--font-mono); font-size: 11px; color: var(--text);">{{ m.id }}</span>
+              <span style="padding: 10px 12px; color: var(--text-muted);">{{ m.label }}</span>
+              <span style="padding: 10px 12px; color: var(--text-muted);"><span style="text-decoration: line-through; color: var(--text-dim);">{{ m.beforeDisplay }}</span> &rarr; {{ m.afterDisplay }}</span>
+              <span style="padding: 10px 12px;">
+                <span style="font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; padding: 2px 7px; border-radius: 4px; background: {{ m.bg }}; color: {{ m.color }};">{{ m.tag }}</span>
+              </span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- STEP 4 — TRANSFORM -->
+  <sc-if value="{{ isStep4 }}" hint-placeholder-val="{{ false }}">
+    <div>
+      <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px;">
+        <span style="font-family: var(--font-mono); font-size: 14px; color: var(--accent);">4</span>
+        <h2 style="font-size: 24px; font-weight: 600;">Transform</h2>
+      </div>
+      <p style="font-size: 15px; line-height: 1.6; color: var(--text-muted); max-width: 660px; margin-bottom: 20px;">Original vs. transformed, inline. Not-applied (review) items are flagged for human review, never rewritten automatically.</p>
+
+      <div style="background: var(--bg2); border: 1px solid var(--border); border-radius: 4px; padding: 18px;">
+        <div style="border: 1px solid var(--border-light); border-radius: 4px; background: var(--bg); padding: 16px; font-family: var(--font-mono); font-size: 13px; line-height: 1.9; color: var(--text-muted); white-space: pre-wrap; max-height: 460px; overflow-y: auto;">
+          <sc-for list="{{ diffSegments }}" as="seg" hint-placeholder-count="4"><sc-if value="{{ seg.isText }}" hint-placeholder-val="{{ true }}"><span>{{ seg.text }}</span></sc-if><sc-if value="{{ seg.isApplied }}" hint-placeholder-val="{{ false }}"><span style="text-decoration: line-through; color: var(--text-dim); background: var(--tint-project);">{{ seg.before }}</span><span style="{{ seg.afterStyle }}">{{ seg.after }}</span></sc-if><sc-if value="{{ seg.isReview }}" hint-placeholder-val="{{ false }}"><span style="border-bottom: 2px dashed var(--accent-purple); color: var(--text);">{{ seg.text }}</span></sc-if></sc-for>
+        </div>
+        <div style="display: flex; gap: 18px; margin-top: 14px; font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);">
+          <span><span style="color: var(--accent-teal);">&#9632;</span> {{ appliedCount }} applied</span>
+          <span><span style="color: var(--accent-purple);">&#9632;</span> {{ flaggedCount }} flagged for review</span>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- STEP 5 — VALIDATE -->
+  <sc-if value="{{ isStep5 }}" hint-placeholder-val="{{ false }}">
+    <div>
+      <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px;">
+        <span style="font-family: var(--font-mono); font-size: 14px; color: var(--accent);">5</span>
+        <h2 style="font-size: 24px; font-weight: 600;">Validate</h2>
+      </div>
+      <p style="font-size: 15px; line-height: 1.6; color: var(--text-muted); max-width: 660px; margin-bottom: 20px;">Overall status and the protected-token check &mdash; numbers, percentages, dollar amounts, URLs, emails &mdash; confirmed to survive every applied change.</p>
+
+      <div style="background: var(--bg2); border: 1px solid var(--border); border-radius: 4px; padding: 18px;">
+        <div style="display: flex; align-items: center; gap: 12px; border: 1px solid var(--border-light); border-radius: 4px; background: var(--bg); padding: 14px;">
+          <span style="width: 10px; height: 10px; border-radius: 50%; background: {{ validation.statusColor }};"></span>
+          <span style="font-family: var(--font-mono); font-size: 14px; letter-spacing: 0.04em; color: var(--text);">{{ validation.statusLabel }}</span>
+          <span style="font-size: 13px; color: var(--text-dim);">&mdash; {{ validation.statusNote }}</span>
+        </div>
+        <div style="border: 1px solid var(--border-light); border-radius: 4px; background: var(--bg); padding: 14px; margin-top: 10px;">
+          <div style="font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 10px;">Protected tokens &middot; {{ validation.tokens.length }} checked &middot; {{ validation.missing.length }} missing</div>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+            <sc-for list="{{ validation.tokens }}" as="t" hint-placeholder-count="3">
+              <span style="font-family: var(--font-mono); font-size: 11px; padding: 3px 8px; border-radius: 4px; background: var(--bg2); border: 1px solid var(--border-light); color: var(--text-muted);">{{ t }}</span>
+            </sc-for>
+          </div>
+        </div>
+        <p style="font-size: 13px; line-height: 1.6; color: var(--text-dim); margin-top: 12px; font-style: italic;">Caveat: validation is conservative and evidence-based. It does not prove semantic equivalence.</p>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- STEP 6 — REPORT -->
+  <sc-if value="{{ isStep6 }}" hint-placeholder-val="{{ false }}">
+    <div>
+      <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px;">
+        <span style="font-family: var(--font-mono); font-size: 14px; color: var(--accent);">6</span>
+        <h2 style="font-size: 24px; font-weight: 600;">Report</h2>
+      </div>
+      <p style="font-size: 15px; line-height: 1.6; color: var(--text-muted); max-width: 660px; margin-bottom: 20px;">The final document leads. Compare, validation, the transformation log, and metrics follow as supporting evidence.</p>
+
+      <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px;">
+        <x-import component-from-global-scope="DHKDesignSystem_c5bcb5.Button" variant="ghost" onClick="{{ copyFinalDocument }}" hint-size="150px,34px">Copy final document</x-import>
+        <x-import component-from-global-scope="DHKDesignSystem_c5bcb5.Button" variant="ghost" onClick="{{ downloadFinalMd }}" hint-size="140px,34px">Download final.md</x-import>
+        <x-import component-from-global-scope="DHKDesignSystem_c5bcb5.Button" variant="primary" onClick="{{ downloadTrail }}" hint-size="180px,34px">Download artifact trail</x-import>
+      </div>
+
+      <div style="display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 1px solid var(--border); margin-bottom: 20px;">
+        <sc-for list="{{ reportTabs }}" as="rt" hint-placeholder-count="5">
+          <div onClick="{{ rt.onClick }}" style="{{ rt.style }}">{{ rt.label }}</div>
+        </sc-for>
+      </div>
+
+      <!-- Final Document -->
+      <sc-if value="{{ isReportFinal }}" hint-placeholder-val="{{ true }}">
+        <div style="background: var(--bg2); border: 1px solid var(--border); border-radius: 4px; padding: 24px;">
+          <sc-for list="{{ finalBlocks }}" as="b" hint-placeholder-count="4">
+            <sc-if value="{{ b.isH1 }}" hint-placeholder-val="{{ false }}"><h2 style="font-size: 26px; font-weight: 700; margin: 0 0 12px;">{{ b.text }}</h2></sc-if>
+            <sc-if value="{{ b.isH3 }}" hint-placeholder-val="{{ false }}"><h3 style="font-size: 17px; font-weight: 600; margin: 20px 0 10px;">{{ b.text }}</h3></sc-if>
+            <sc-if value="{{ b.isJob }}" hint-placeholder-val="{{ false }}"><div style="font-size: 15px; margin-top: 14px;"><strong>{{ b.bold }}</strong>{{ b.rest }}</div></sc-if>
+            <sc-if value="{{ b.isLi }}" hint-placeholder-val="{{ false }}"><div style="font-size: 14px; line-height: 1.8; color: var(--text-muted); padding-left: 14px; position: relative;"><span style="position: absolute; left: 0;">&ndash;</span>{{ b.text }}</div></sc-if>
+            <sc-if value="{{ b.isP }}" hint-placeholder-val="{{ false }}"><p style="font-size: 14px; line-height: 1.8; color: var(--text-muted); margin: 8px 0;">{{ b.text }}</p></sc-if>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <!-- Compare -->
+      <sc-if value="{{ isReportCompare }}" hint-placeholder-val="{{ false }}">
+        <div>
+          <div style="display: flex; gap: 6px; margin-bottom: 14px;">
+            <span onClick="{{ setCompareRaw }}" style="{{ compareRawTabStyle }}">Raw</span>
+            <span onClick="{{ setCompareRendered }}" style="{{ compareRenderedTabStyle }}">Rendered</span>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div>
+              <div style="font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 8px;">Original &middot; {{ metricsBefore.words }} words</div>
+              <div ref="{{ originalPaneRef }}" onScroll="{{ onScrollOriginal }}" style="border: 1px solid var(--border-light); border-radius: 4px; background: var(--bg2); padding: 16px; max-height: 480px; overflow-y: auto;">
+                <sc-if value="{{ isCompareRaw }}" hint-placeholder-val="{{ false }}"><div style="font-family: var(--font-mono); font-size: 12px; line-height: 1.8; color: var(--text-muted); white-space: pre-wrap;">{{ source }}</div></sc-if>
+                <sc-if value="{{ isCompareRendered }}" hint-placeholder-val="{{ true }}">
+                  <sc-for list="{{ originalBlocks }}" as="b" hint-placeholder-count="4">
+                    <sc-if value="{{ b.isH1 }}" hint-placeholder-val="{{ false }}"><h3 style="font-size: 20px; font-weight: 700; margin: 0 0 10px;">{{ b.text }}</h3></sc-if>
+                    <sc-if value="{{ b.isH3 }}" hint-placeholder-val="{{ false }}"><h4 style="font-size: 15px; font-weight: 600; margin: 16px 0 8px;">{{ b.text }}</h4></sc-if>
+                    <sc-if value="{{ b.isJob }}" hint-placeholder-val="{{ false }}"><div style="font-size: 13px; margin-top: 10px;"><strong>{{ b.bold }}</strong>{{ b.rest }}</div></sc-if>
+                    <sc-if value="{{ b.isLi }}" hint-placeholder-val="{{ false }}"><div style="font-size: 13px; line-height: 1.7; color: var(--text-muted); padding-left: 12px; position: relative;"><span style="position: absolute; left: 0;">&ndash;</span>{{ b.text }}</div></sc-if>
+                    <sc-if value="{{ b.isP }}" hint-placeholder-val="{{ false }}"><p style="font-size: 13px; line-height: 1.7; color: var(--text-muted); margin: 6px 0;">{{ b.text }}</p></sc-if>
+                  </sc-for>
+                </sc-if>
+              </div>
+            </div>
+            <div>
+              <div style="font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 8px;">Final &middot; {{ metricsAfter.words }} words</div>
+              <div ref="{{ finalPaneRef }}" onScroll="{{ onScrollFinal }}" style="border: 1px solid var(--border-light); border-radius: 4px; background: var(--bg2); padding: 16px; max-height: 480px; overflow-y: auto;">
+                <sc-if value="{{ isCompareRaw }}" hint-placeholder-val="{{ false }}"><div style="font-family: var(--font-mono); font-size: 12px; line-height: 1.8; color: var(--text-muted); white-space: pre-wrap;">{{ finalText }}</div></sc-if>
+                <sc-if value="{{ isCompareRendered }}" hint-placeholder-val="{{ true }}">
+                  <sc-for list="{{ finalBlocks }}" as="b" hint-placeholder-count="4">
+                    <sc-if value="{{ b.isH1 }}" hint-placeholder-val="{{ false }}"><h3 style="font-size: 20px; font-weight: 700; margin: 0 0 10px;">{{ b.text }}</h3></sc-if>
+                    <sc-if value="{{ b.isH3 }}" hint-placeholder-val="{{ false }}"><h4 style="font-size: 15px; font-weight: 600; margin: 16px 0 8px;">{{ b.text }}</h4></sc-if>
+                    <sc-if value="{{ b.isJob }}" hint-placeholder-val="{{ false }}"><div style="font-size: 13px; margin-top: 10px;"><strong>{{ b.bold }}</strong>{{ b.rest }}</div></sc-if>
+                    <sc-if value="{{ b.isLi }}" hint-placeholder-val="{{ false }}"><div style="font-size: 13px; line-height: 1.7; color: var(--text-muted); padding-left: 12px; position: relative;"><span style="position: absolute; left: 0;">&ndash;</span>{{ b.text }}</div></sc-if>
+                    <sc-if value="{{ b.isP }}" hint-placeholder-val="{{ false }}"><p style="font-size: 13px; line-height: 1.7; color: var(--text-muted); margin: 6px 0;">{{ b.text }}</p></sc-if>
+                  </sc-for>
+                </sc-if>
+              </div>
+            </div>
+          </div>
+          <p style="font-size: 12px; color: var(--text-dim); margin-top: 10px; font-family: var(--font-mono);">Scrolling either pane scrolls the other proportionally.</p>
+        </div>
+      </sc-if>
+
+      <!-- Validation (report view) -->
+      <sc-if value="{{ isReportValidation }}" hint-placeholder-val="{{ false }}">
+        <div style="background: var(--bg2); border: 1px solid var(--border); border-radius: 4px; padding: 18px;">
+          <div style="display: flex; align-items: center; gap: 12px; border: 1px solid var(--border-light); border-radius: 4px; background: var(--bg); padding: 14px;">
+            <span style="width: 10px; height: 10px; border-radius: 50%; background: {{ validation.statusColor }};"></span>
+            <span style="font-family: var(--font-mono); font-size: 14px; letter-spacing: 0.04em; color: var(--text);">{{ validation.statusLabel }}</span>
+            <span style="font-size: 13px; color: var(--text-dim);">&mdash; {{ validation.statusNote }}</span>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px;">
+            <sc-for list="{{ validation.tokens }}" as="t" hint-placeholder-count="3">
+              <span style="font-family: var(--font-mono); font-size: 11px; padding: 3px 8px; border-radius: 4px; background: var(--bg2); border: 1px solid var(--border-light); color: var(--text-muted);">{{ t }}</span>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- Transformation diff log (report view) -->
+      <sc-if value="{{ isReportDiffLog }}" hint-placeholder-val="{{ false }}">
+        <div style="background: var(--bg2); border: 1px solid var(--border); border-radius: 4px; padding: 18px;">
+          <div style="border: 1px solid var(--border-light); border-radius: 4px; background: var(--bg); overflow: hidden;">
+            <div style="display: grid; grid-template-columns: 0.7fr 1.1fr 1.8fr 0.9fr; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); background: var(--bg2); border-bottom: 1px solid var(--border);">
+              <span style="padding: 10px 12px;">Id</span><span style="padding: 10px 12px;">Rule</span><span style="padding: 10px 12px;">Before &rarr; after</span><span style="padding: 10px 12px;">Applied</span>
+            </div>
+            <sc-for list="{{ matches }}" as="m" hint-placeholder-count="4">
+              <div style="display: grid; grid-template-columns: 0.7fr 1.1fr 1.8fr 0.9fr; font-size: 13px; border-bottom: 1px solid var(--border-light); align-items: center;">
+                <span style="padding: 10px 12px; font-family: var(--font-mono); font-size: 11px; color: var(--text);">{{ m.id }}</span>
+                <span style="padding: 10px 12px; color: var(--text-muted);">{{ m.label }}</span>
+                <span style="padding: 10px 12px; color: var(--text-muted);"><span style="text-decoration: line-through; color: var(--text-dim);">{{ m.beforeDisplay }}</span> &rarr; {{ m.afterDisplay }}</span>
+                <span style="padding: 10px 12px; font-family: var(--font-mono); font-size: 11px; color: {{ m.appliedColor }};">{{ m.appliedLabel }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- Metrics -->
+      <sc-if value="{{ isReportMetrics }}" hint-placeholder-val="{{ false }}">
+        <div style="background: var(--bg2); border: 1px solid var(--border); border-radius: 4px; padding: 18px;">
+          <div style="border: 1px solid var(--border-light); border-radius: 4px; background: var(--bg); overflow: hidden;">
+            <div style="display: grid; grid-template-columns: 1.4fr 1fr 1fr; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); background: var(--bg2); border-bottom: 1px solid var(--border);">
+              <span style="padding: 10px 12px;">Metric</span><span style="padding: 10px 12px;">Before</span><span style="padding: 10px 12px;">After</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 1.4fr 1fr 1fr; font-size: 14px; border-bottom: 1px solid var(--border-light);"><span style="padding: 10px 12px; color: var(--text-muted);">Characters</span><span style="padding: 10px 12px;">{{ metricsBefore.chars }}</span><span style="padding: 10px 12px;">{{ metricsAfter.chars }}</span></div>
+            <div style="display: grid; grid-template-columns: 1.4fr 1fr 1fr; font-size: 14px; border-bottom: 1px solid var(--border-light);"><span style="padding: 10px 12px; color: var(--text-muted);">Words</span><span style="padding: 10px 12px;">{{ metricsBefore.words }}</span><span style="padding: 10px 12px;">{{ metricsAfter.words }}</span></div>
+            <div style="display: grid; grid-template-columns: 1.4fr 1fr 1fr; font-size: 14px; border-bottom: 1px solid var(--border-light);"><span style="padding: 10px 12px; color: var(--text-muted);">Sentences</span><span style="padding: 10px 12px;">{{ metricsBefore.sentences }}</span><span style="padding: 10px 12px;">{{ metricsAfter.sentences }}</span></div>
+            <div style="display: grid; grid-template-columns: 1.4fr 1fr 1fr; font-size: 14px;"><span style="padding: 10px 12px; color: var(--text-muted);">Avg sentence words</span><span style="padding: 10px 12px;">{{ metricsBefore.avg }}</span><span style="padding: 10px 12px;">{{ metricsAfter.avg }}</span></div>
+          </div>
+        </div>
+      </sc-if>
+
+    </div>
+  </sc-if>
+
+</div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+
+function countMetrics(text) {
+  const t = text || '';
+  const chars = t.length;
+  const words = (t.match(/[A-Za-z0-9'-]+/g) || []).length;
+  const sentences = (t.match(/[^.!?]+[.!?]+/g) || []).length || (t.trim() ? 1 : 0);
+  const avg = sentences ? +(words / sentences).toFixed(2) : 0;
+  return { chars, words, sentences, avg };
+}
+
+const GERUND_MAP = {
+  leading: 'Led', managing: 'Managed', developing: 'Developed', building: 'Built',
+  designing: 'Designed', running: 'Ran', handling: 'Handled', overseeing: 'Oversaw',
+  coordinating: 'Coordinated', implementing: 'Implemented', maintaining: 'Maintained',
+  supporting: 'Supported', creating: 'Created', delivering: 'Delivered'
+};
+
+function cap(w) { return w.charAt(0).toUpperCase() + w.slice(1); }
+
+const PACKS = {
+  concise: { label: 'Active Voice & Conciseness', version: 'v0.1.0', ruleIds: ['responsible_for_verb', 'successfully_utilized', 'effectively_x', 'leveraged', 'utilized', 'cut_very', 'cut_quite', 'cliche_opener', 'passive_voice'] },
+  scientific: { label: 'Concise Scientific Writing', version: 'v1.2.0', ruleIds: ['cut_very', 'cut_quite', 'passive_voice'] }
+};
+
+const RULES = [
+  { id: 'responsible_for_verb', label: 'Drop "responsible for" + active verb', category: 'safe',
+    regex: /\bResponsible for (leading|managing|developing|building|designing|running|handling|overseeing|coordinating|implementing|maintaining|supporting|creating|delivering)\b/gi,
+    apply: (full, verb) => GERUND_MAP[verb.toLowerCase()] || cap(verb) },
+  { id: 'successfully_utilized', label: 'Cut "successfully utilized"', category: 'safe',
+    regex: /\bSuccessfully utilized\b/g,
+    apply: () => 'Used' },
+  { id: 'effectively_x', label: 'Cut "effectively"', category: 'safe',
+    regex: /\bEffectively (\w+)\b/g,
+    apply: (full, p1) => cap(p1) },
+  { id: 'leveraged', label: 'Simplify "leveraged" \u2192 "used"', category: 'low-risk',
+    regex: /\b(Leveraged|leveraged)\b/g,
+    apply: (full) => full === 'Leveraged' ? 'Used' : 'used' },
+  { id: 'utilized', label: 'Simplify "utilized" \u2192 "used"', category: 'low-risk',
+    regex: /\b(Utilized|utilized)\b/g,
+    apply: (full) => full === 'Utilized' ? 'Used' : 'used' },
+  { id: 'cut_very', label: 'Cut intensifier "very"', category: 'low-risk',
+    regex: /\bvery\s+/gi,
+    apply: () => '' },
+  { id: 'cut_quite', label: 'Cut intensifier "quite"', category: 'low-risk',
+    regex: /\bquite\s+/gi,
+    apply: () => '' },
+  { id: 'cliche_opener', label: 'Cliche self-description', category: 'review',
+    regex: /\bhard-working and detail-oriented\b/gi, apply: null },
+  { id: 'passive_voice', label: 'Passive voice', category: 'review',
+    regex: /\bwas (adopted|approved|reviewed|accepted|implemented) by\b/gi, apply: null },
+];
+
+function findMatches(source, packKey) {
+  const activeIds = PACKS[packKey || 'concise'].ruleIds;
+  const all = [];
+  RULES.filter(r => activeIds.includes(r.id)).forEach(rule => {
+    const re = new RegExp(rule.regex);
+    let m;
+    while ((m = re.exec(source))) {
+      const before = m[0];
+      const after = rule.category !== 'review' ? rule.apply(...m) : null;
+      all.push({ ruleId: rule.id, label: rule.label, category: rule.category, start: m.index, end: m.index + before.length, before, after });
+      if (before.length === 0) re.lastIndex++;
+    }
+  });
+  all.sort((a, b) => a.start - b.start);
+  const resolved = [];
+  let lastEnd = -1;
+  all.forEach(mt => { if (mt.start >= lastEnd) { resolved.push(mt); lastEnd = mt.end; } });
+  resolved.forEach((m, i) => {
+    m.id = 'obs-' + String(i + 1).padStart(2, '0');
+    if (m.category === 'safe') { m.tag = 'SAFE'; m.color = 'var(--accent-teal)'; m.bg = 'var(--tint-study)'; }
+    else if (m.category === 'low-risk') { m.tag = 'LOW RISK'; m.color = 'var(--accent-orange)'; m.bg = 'var(--tint-project)'; }
+    else { m.tag = 'REVIEW'; m.color = 'var(--accent-purple)'; m.bg = 'transparent'; }
+    m.applied = m.category !== 'review';
+    m.appliedLabel = m.applied ? 'applied' : 'flagged';
+    m.appliedColor = m.applied ? 'var(--accent-teal)' : 'var(--accent-purple)';
+    m.beforeDisplay = m.before.trim();
+    m.afterDisplay = m.category === 'review' ? 'no text change proposed' : (m.after === '' ? '(removed)' : m.after);
+    m.rowBg = m.category === 'review' ? 'rgba(139,42,220,0.04)' : 'transparent';
+  });
+  return resolved;
+}
+
+function buildFinal(source, matches) {
+  let out = ''; let cursor = 0;
+  matches.forEach(m => {
+    out += source.slice(cursor, m.start);
+    out += m.category === 'review' ? m.before : m.after;
+    cursor = m.end;
+  });
+  out += source.slice(cursor);
+  return out;
+}
+
+function buildSegments(source, matches, mode) {
+  const segs = []; let cursor = 0;
+  matches.forEach(m => {
+    if (m.start > cursor) segs.push({ isText: true, text: source.slice(cursor, m.start), key: 't' + m.id });
+    if (mode === 'observe') {
+      segs.push({ isMatch: true, text: m.before, label: m.label, style: 'background:' + m.bg + ';color:' + m.color + ';border-radius:3px;padding:1px 3px;', key: m.id });
+    } else if (m.category === 'review') {
+      segs.push({ isReview: true, text: m.before, key: m.id });
+    } else {
+      segs.push({ isApplied: true, before: m.before, after: m.after, afterStyle: 'background:' + m.bg + ';color:' + m.color + ';border-radius:3px;padding:1px 3px;', key: m.id });
+    }
+    cursor = m.end;
+  });
+  if (cursor < source.length) segs.push({ isText: true, text: source.slice(cursor), key: 'tail' });
+  return segs;
+}
+
+function extractTokens(text) {
+  const re = /(\$[\d,]+(?:\.\d+)?[KM]?(?:\/year)?|\d+(?:\.\d+)?%|https?:\/\/[^\s)]+|[\w.+-]+@[\w.-]+\.\w+|\b\d{4}[\u2013-]\d{4}\b|\b40\+\b)/g;
+  const set = new Set(); let m;
+  while ((m = re.exec(text))) set.add(m[0]);
+  return [...set];
+}
+
+function parseBlocks(text) {
+  const lines = (text || '').split('\n');
+  const blocks = [];
+  let firstDone = false;
+  lines.forEach(raw => {
+    const line = raw.trim();
+    if (!line) return;
+    if (!firstDone) { blocks.push({ isH1: true, text: line }); firstDone = true; return; }
+    let m;
+    if ((m = line.match(/^##\s+(.*)/))) { blocks.push({ isH3: true, text: m[1] }); return; }
+    if ((m = line.match(/^-\s+(.*)/))) { blocks.push({ isLi: true, text: m[1] }); return; }
+    if ((m = line.match(/^\*\*(.+?)\*\*(.*)$/))) { blocks.push({ isJob: true, bold: m[1], rest: m[2] }); return; }
+    blocks.push({ isP: true, text: line });
+  });
+  blocks.forEach((b, i) => b.key = 'blk' + i);
+  return blocks;
+}
+
+const RESUME_EXAMPLE = "Jordan Reyes\nData Engineer \u00b7 jordan.reyes@example.com \u00b7 https://linkedin.com/in/example\n\nI am a hard-working and detail-oriented engineer with 8 years of experience.\n\n## Experience\n\n**Northwind Analytics \u2014 Senior Data Engineer** (2021\u20132025)\n\n- Responsible for managing the batch ingestion platform and its on-call rotation.\n- Successfully utilized Spark to rebuild the nightly pipeline, cutting runtime from 6.5 hours to 90 minutes.\n- Responsible for leading migration of 40+ dashboards to the new warehouse.\n- Leveraged dbt to standardize transformations across teams.\n\n**Contoso Corp \u2014 Data Engineer** (2019\u20132021)\n\n- Responsible for developing ETL jobs for the finance domain.\n- Effectively reduced warehouse spend by 23% ($180K/year) through partition pruning.\n- My work on schema validation was adopted by three other teams.\n\n## Skills\n\nPython, SQL, Spark, dbt, Airflow, Snowflake.";
+
+const ESSAY_EXAMPLE = "The hidden cost of dashboards\n\nTeams very often assume that shipping a dashboard is quite the same as equipping a team to decide. It mostly isn't.\n\nSuccessfully utilized correctly, a dashboard is a demo. Responsible for building judgment is a different, slower job.";
+
+const STEP_META = [
+  { num: 1, label: 'Input' }, { num: 2, label: 'Observe' }, { num: 3, label: 'Recommend' },
+  { num: 4, label: 'Transform' }, { num: 5, label: 'Validate' }, { num: 6, label: 'Report' }
+];
+
+const REPORT_TABS = [
+  { key: 'final', label: 'Final Document' },
+  { key: 'compare', label: 'Compare' },
+  { key: 'validation', label: 'Validation' },
+  { key: 'difflog', label: 'Transformation Diff Log' },
+  { key: 'metrics', label: 'Metrics' }
+];
+
+class Component extends DCLogic {
+  state = {
+    step: 1,
+    source: RESUME_EXAMPLE,
+    exampleKey: '',
+    packKey: 'concise',
+    hasRun: false,
+    isEdited: false,
+    result: null,
+    reportTab: 'final',
+    compareView: 'rendered'
+  };
+
+  fileInputRef = React.createRef();
+  originalPaneRef = React.createRef();
+  finalPaneRef = React.createRef();
+  _syncing = false;
+
+  handleNewSource = (text) => {
+    this.setState(s => ({ source: text, isEdited: s.hasRun }));
+  };
+
+  onSourceInputChange = (e) => this.handleNewSource(e.target.value);
+
+  onExampleChange = (e) => {
+    const k = e.target.value;
+    if (!k) return;
+    this.handleNewSource(k === 'resume' ? RESUME_EXAMPLE : ESSAY_EXAMPLE);
+    this.setState({ exampleKey: k });
+  };
+
+  onPackChange = (e) => {
+    const k = e.target.value;
+    this.setState(s => ({ packKey: k, isEdited: s.hasRun }));
+  };
+
+  triggerUpload = () => { if (this.fileInputRef.current) this.fileInputRef.current.click(); };
+
+  onFileChange = (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => this.handleNewSource(String(reader.result));
+    reader.readAsText(f);
+    e.target.value = '';
+  };
+
+  runPipeline = () => {
+    const matches = findMatches(this.state.source, this.state.packKey);
+    const finalText = buildFinal(this.state.source, matches);
+    const metricsBefore = countMetrics(this.state.source);
+    const metricsAfter = countMetrics(finalText);
+    const tokensBefore = extractTokens(this.state.source);
+    const tokensAfter = extractTokens(finalText);
+    const missing = tokensBefore.filter(t => !tokensAfter.includes(t));
+    this.setState({
+      hasRun: true, isEdited: false, step: 2,
+      result: { matches, finalText, metricsBefore, metricsAfter, tokensBefore, missing }
+    });
+  };
+
+  setStep = (n) => {
+    if (n === 1 || (this.state.hasRun && !this.state.isEdited)) this.setState({ step: n });
+  };
+
+  setReportTab = (k) => this.setState({ reportTab: k });
+  setCompareRaw = () => this.setState({ compareView: 'raw' });
+  setCompareRendered = () => this.setState({ compareView: 'rendered' });
+
+  onScrollOriginal = (e) => {
+    if (this._syncing) return;
+    this._syncing = true;
+    const src = e.target, dst = this.finalPaneRef.current;
+    if (dst) {
+      const denom = (src.scrollHeight - src.clientHeight) || 1;
+      const ratio = src.scrollTop / denom;
+      dst.scrollTop = ratio * (dst.scrollHeight - dst.clientHeight);
+    }
+    this._syncing = false;
+  };
+
+  onScrollFinal = (e) => {
+    if (this._syncing) return;
+    this._syncing = true;
+    const src = e.target, dst = this.originalPaneRef.current;
+    if (dst) {
+      const denom = (src.scrollHeight - src.clientHeight) || 1;
+      const ratio = src.scrollTop / denom;
+      dst.scrollTop = ratio * (dst.scrollHeight - dst.clientHeight);
+    }
+    this._syncing = false;
+  };
+
+  downloadText(content, filename, type) {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  copyFinalDocument = () => {
+    if (this.state.result) navigator.clipboard.writeText(this.state.result.finalText).catch(() => {});
+  };
+
+  downloadFinalMd = () => {
+    if (this.state.result) this.downloadText(this.state.result.finalText, 'final.md', 'text/markdown');
+  };
+
+  downloadTrail = () => {
+    if (!this.state.result) return;
+    const r = this.state.result;
+    const data = JSON.stringify({
+      source: this.state.source,
+      observations: r.matches.map(m => ({ id: m.id, rule: m.ruleId, category: m.category, before: m.before, after: m.after })),
+      final: r.finalText,
+      validation: { pass: r.missing.length === 0, tokens: r.tokensBefore, missing: r.missing },
+      metrics: { before: r.metricsBefore, after: r.metricsAfter }
+    }, null, 2);
+    this.downloadText(data, 'praxis-artifact-trail.json', 'application/json');
+  };
+
+  renderVals() {
+    const s = this.state;
+    const result = s.result;
+    const matches = result ? result.matches : [];
+    const metricsLive = countMetrics(s.source);
+    const metricsBefore = result ? result.metricsBefore : { chars: 0, words: 0, sentences: 0, avg: 0 };
+    const metricsAfter = result ? result.metricsAfter : { chars: 0, words: 0, sentences: 0, avg: 0 };
+    const finalText = result ? result.finalText : '';
+    const appliedCount = matches.filter(m => m.applied).length;
+    const flaggedCount = matches.length - appliedCount;
+    const missing = result ? result.missing : [];
+    const tokens = result ? result.tokensBefore : [];
+    const validation = {
+      pass: missing.length === 0,
+      tokens, missing,
+      statusColor: missing.length === 0 ? 'var(--accent-teal)' : 'var(--accent-orange)',
+      statusLabel: missing.length === 0 ? 'VALIDATION PASS' : 'VALIDATION ISSUES',
+      statusNote: missing.length === 0 ? 'all protected tokens preserved' : missing.length + ' token(s) missing after transform'
+    };
+
+    const navSteps = STEP_META.map(meta => {
+      const locked = meta.num !== 1 && !(s.hasRun && !s.isEdited);
+      const active = s.step === meta.num;
+      let badge = '\u2014';
+      if (s.hasRun) {
+        if (meta.num === 1) badge = metricsBefore.words + ' words';
+        else if (meta.num === 2) badge = matches.length + ' observations';
+        else if (meta.num === 3) badge = matches.length + ' proposed';
+        else if (meta.num === 4) badge = appliedCount + ' applied / ' + flaggedCount + ' flagged';
+        else if (meta.num === 5) badge = validation.pass ? 'pass' : 'issues';
+        else if (meta.num === 6) badge = 'ready';
+      }
+      return {
+        num: meta.num, label: meta.label, badge,
+        onClick: () => this.setStep(meta.num),
+        style: ''
+      };
+    });
+
+    // compute outer container style per step (active/locked) directly
+    navSteps.forEach((cell, i) => {
+      const meta = STEP_META[i];
+      const active = s.step === meta.num;
+      const locked = meta.num !== 1 && !(s.hasRun && !s.isEdited);
+      cell.wrapStyle = 'flex:1;min-width:130px;text-align:center;padding:10px 8px;border-radius:4px;cursor:' + (locked ? 'not-allowed' : 'pointer') + ';background:' + (active ? 'var(--accent)' : 'var(--bg2)') + ';border:1px solid ' + (active ? 'var(--accent)' : 'var(--border)') + ';opacity:' + (locked ? '0.5' : '1') + ';color:' + (active ? '#fff' : 'var(--text)');
+    });
+
+    const observeSegments = result ? buildSegments(s.source, matches, 'observe') : [];
+    const diffSegments = result ? buildSegments(s.source, matches, 'diff') : [];
+
+    const finalBlocks = result ? parseBlocks(finalText) : [];
+    const originalBlocks = parseBlocks(s.source);
+
+    const reportTabs = REPORT_TABS.map(rt => ({
+      key: rt.key, label: rt.label,
+      onClick: () => this.setReportTab(rt.key),
+      style: 'font-family:var(--font-mono);font-size:11px;letter-spacing:0.04em;text-transform:uppercase;padding:10px 14px;cursor:pointer;border-bottom:2px solid ' + (s.reportTab === rt.key ? 'var(--accent)' : 'transparent') + ';color:' + (s.reportTab === rt.key ? 'var(--accent)' : 'var(--text-dim)')
+    }));
+
+    return {
+      isStep1: s.step === 1, isStep2: s.step === 2, isStep3: s.step === 3,
+      isStep4: s.step === 4, isStep5: s.step === 5, isStep6: s.step === 6,
+      navSteps: navSteps.map(c => ({ ...c, style: c.wrapStyle, wrapStyle: undefined })),
+      source: s.source,
+      onSourceInputChange: this.onSourceInputChange,
+      exampleKey: s.exampleKey,
+      onExampleChange: this.onExampleChange,
+      triggerUpload: this.triggerUpload,
+      fileInputRef: this.fileInputRef,
+      onFileChange: this.onFileChange,
+      runPipeline: this.runPipeline,
+      isEdited: s.isEdited,
+      metricsLive,
+      packKey: s.packKey,
+      packOptions: Object.keys(PACKS).map(k => ({ key: k, label: PACKS[k].label })),
+      onPackChange: this.onPackChange,
+      packLabel: PACKS[s.packKey].label,
+      packVersion: PACKS[s.packKey].version,
+      packCount: RULES.filter(r => PACKS[s.packKey].ruleIds.includes(r.id) && r.category !== 'review').length,
+      matches,
+      observeSegments,
+      diffSegments,
+      appliedCount, flaggedCount,
+      validation,
+      isReportFinal: s.reportTab === 'final',
+      isReportCompare: s.reportTab === 'compare',
+      isReportValidation: s.reportTab === 'validation',
+      isReportDiffLog: s.reportTab === 'difflog',
+      isReportMetrics: s.reportTab === 'metrics',
+      reportTabs,
+      finalBlocks,
+      originalBlocks,
+      compareRawTabStyle: 'font-family:var(--font-mono);font-size:11px;letter-spacing:0.04em;text-transform:uppercase;padding:6px 12px;border-radius:4px;cursor:pointer;background:' + (s.compareView === 'raw' ? 'var(--bg3)' : 'transparent') + ';color:' + (s.compareView === 'raw' ? 'var(--text)' : 'var(--text-dim)'),
+      compareRenderedTabStyle: 'font-family:var(--font-mono);font-size:11px;letter-spacing:0.04em;text-transform:uppercase;padding:6px 12px;border-radius:4px;cursor:pointer;background:' + (s.compareView === 'rendered' ? 'var(--bg3)' : 'transparent') + ';color:' + (s.compareView === 'rendered' ? 'var(--text)' : 'var(--text-dim)'),
+      isCompareRaw: s.compareView === 'raw',
+      isCompareRendered: s.compareView === 'rendered',
+      setCompareRaw: this.setCompareRaw,
+      setCompareRendered: this.setCompareRendered,
+      originalPaneRef: this.originalPaneRef,
+      finalPaneRef: this.finalPaneRef,
+      onScrollOriginal: this.onScrollOriginal,
+      onScrollFinal: this.onScrollFinal,
+      metricsBefore, metricsAfter,
+      finalText,
+      copyFinalDocument: this.copyFinalDocument,
+      downloadFinalMd: this.downloadFinalMd,
+      downloadTrail: this.downloadTrail
+    };
+  }
+}
+
+</script>
+</body>
+</html>

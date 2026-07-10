@@ -40,7 +40,6 @@ const STEPS = [
   { n: 4, name: 'Transform' },
   { n: 5, name: 'Validate' },
   { n: 6, name: 'Report' },
-  { n: 7, name: 'Compare' },
 ];
 
 const stepperEl = document.getElementById('stepper');
@@ -71,7 +70,6 @@ function badgeFor(step) {
     }
     case 5: return t.validation.status;
     case 6: return 'ready';
-    case 7: return `${t.metrics.before.words} → ${t.metrics.after.words} words`;
     default: return '';
   }
 }
@@ -123,11 +121,10 @@ function renderInput() {
   const exampleOptions = EXAMPLES.map((e) => `<option value="${e.id}">${escapeHtml(e.label)}</option>`).join('');
 
   panelEl.innerHTML = `
-    ${passHead(1, 'Input', 'Paste or upload the source, watch live metrics, confirm the pack in effect, then run. The pipeline runs once, in your browser — the document never leaves it.')}
+    ${passHead(1, 'Input', 'Upload, load an example, or paste source, confirm the pack, then run. The pipeline runs once, in your browser — the document never leaves it.')}
     ${state.error ? `<div class="error-note">${escapeHtml(state.error)}</div>` : ''}
-    <div id="stale-slot">${state.stale && state.trail ? STALE_NOTE : ''}</div>
     <div class="card">
-      <div class="input-actions">
+      <div class="input-toolbar">
         <button class="btn" id="upload-btn">Upload file</button>
         <input type="file" id="file-input" accept=".md,.txt,text/markdown,text/plain" hidden>
         <label class="select-wrap"><span class="label">Example</span>
@@ -135,8 +132,15 @@ function renderInput() {
             <option value="" selected disabled>Load example…</option>
             ${exampleOptions}
           </select></label>
+        <div class="toolbar-spacer"></div>
+        <span class="pack-line">Pack
+          <select id="pack-select" class="select" ${packs.length ? '' : 'disabled'}>${packOptions}</select>
+          <span class="pack-detail mono">${packDetail}</span>
+        </span>
         ${engChip}
+        <button class="btn primary" id="run-btn" ${canRun ? '' : 'disabled'}>${runLabel}</button>
       </div>
+      <div id="stale-slot">${state.stale && state.trail ? STALE_NOTE : ''}</div>
       <textarea id="source" class="source-input" spellcheck="false"
         placeholder="Paste Markdown source, or drag a .md / .txt file here…">${escapeHtml(state.source)}</textarea>
       <div class="metrics-row" id="metrics-row">
@@ -144,13 +148,6 @@ function renderInput() {
         <span class="metric">${m.words.toLocaleString()} words</span>
         <span class="metric">${m.sentences.toLocaleString()} sentences</span>
         <span class="metric">avg ${m.average_sentence_words} words/sentence</span>
-      </div>
-      <div class="run-row">
-        <span class="pack-line">Pack
-          <select id="pack-select" class="select" ${packs.length ? '' : 'disabled'}>${packOptions}</select>
-          <span class="pack-detail mono">${packDetail}</span>
-        </span>
-        <button class="btn primary" id="run-btn" ${canRun ? '' : 'disabled'}>${runLabel}</button>
       </div>
     </div>`;
 
@@ -511,29 +508,77 @@ function splitReportSections(reportMd) {
   return sections.map((s) => ({ title: s.title, body: s.lines.join('\n').trim() }));
 }
 
+function syncScroll(a, b) {
+  let lock = false;
+  const follow = (from, to) => () => {
+    if (lock) return;
+    lock = true;
+    const range = from.scrollHeight - from.clientHeight;
+    const ratio = range > 0 ? from.scrollTop / range : 0;
+    to.scrollTop = ratio * (to.scrollHeight - to.clientHeight);
+    requestAnimationFrame(() => { lock = false; });
+  };
+  a.addEventListener('scroll', follow(a, b));
+  b.addEventListener('scroll', follow(b, a));
+}
+
+// Fixed display order: the output leads, then the lens for inspecting it
+// against the original, then provenance/trust signals, then metrics last as
+// supporting evidence — not the headline. Compare isn't a report.md section;
+// it's the original-vs-final side-by-side view, folded in here as a lens on
+// the output rather than its own pipeline step (see
+// docs/design/praxis-viewer-workflow-fixes).
+const REPORT_TAB_ORDER = ['Final Document', 'Compare', 'Validation', 'Transformation Diff Log', 'Metrics'];
+
+function renderCompareTabBody(t) {
+  const rendered = state.compareView === 'rendered';
+  const pane = (text) => (rendered
+    ? `<div class="report-body">${renderMarkdown(text)}</div>`
+    : escapeHtml(text));
+  const paneClass = rendered ? 'rendered-view compare-pane' : 'source-view compare-pane';
+  return `
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" data-compare-view="raw" aria-selected="${!rendered}">Raw</button>
+      <button class="tab" role="tab" data-compare-view="rendered" aria-selected="${rendered}">Rendered</button>
+    </div>
+    <div class="compare-grid">
+      <div class="compare-col">
+        <div class="label">Original · ${t.metrics.before.words} words</div>
+        <div class="${paneClass}" id="cmp-original">${pane(state.runSource)}</div>
+      </div>
+      <div class="compare-col">
+        <div class="label">Final · ${t.metrics.after.words} words</div>
+        <div class="${paneClass}" id="cmp-final">${pane(t.final)}</div>
+      </div>
+    </div>`;
+}
+
 function renderReport() {
   const t = state.trail;
   const hasPrompt = Boolean(t.ui.prompt);
-  const sections = splitReportSections(t.report);
+  const sectionsByTitle = new Map(splitReportSections(t.report).map((s) => [s.title, s]));
+
+  const tabs = REPORT_TAB_ORDER.map((title) =>
+    (title === 'Compare' ? { title, synthetic: true } : sectionsByTitle.get(title)));
   // The review prompt isn't part of report.md — it's a separate artifact —
   // but showing it as a tab here (rather than copy-only) lets you read it
   // before deciding whether to hand it off. Rendered raw, not as markdown:
   // it's meant to be copied verbatim, and its numbered lists and
   // blockquotes would just get flattened by the simple markdown renderer.
-  if (hasPrompt) sections.push({ title: 'Review Prompt', body: t.ui.prompt, raw: true });
+  if (hasPrompt) tabs.push({ title: 'Review Prompt', body: t.ui.prompt, raw: true });
 
-  if (!sections.some((s) => s.title === state.reportTab)) {
-    state.reportTab = sections[0]?.title;
+  if (!tabs.some((s) => s.title === state.reportTab)) {
+    state.reportTab = tabs[0].title; // 'Final Document'
   }
-  const active = sections.find((s) => s.title === state.reportTab) || sections[0];
-  const activeBody = active
-    ? (active.raw
+  const active = tabs.find((s) => s.title === state.reportTab) || tabs[0];
+  const activeBody = active.synthetic
+    ? renderCompareTabBody(t)
+    : (active.raw
         ? `<div class="source-view">${escapeHtml(active.body)}</div>`
-        : `<div class="card"><div class="report-body">${renderMarkdown(active.body)}</div></div>`)
-    : `<div class="card"><div class="report-body">${renderMarkdown(t.report)}</div></div>`;
+        : `<div class="card"><div class="report-body">${renderMarkdown(active.body)}</div></div>`);
 
   panelEl.innerHTML = `
-    ${passHead(6, 'Report', 'The rendered report: metrics before and after, the validation summary, the transformation log, and the final document.')}
+    ${passHead(6, 'Report', 'The final document leads; Compare, Validation, the transformation log, and metrics follow as supporting evidence.')}
     <div class="report-actions">
       <button class="btn" id="copy-final">Copy final document</button>
       <button class="btn" id="dl-final">Download final.md</button>
@@ -542,13 +587,20 @@ function renderReport() {
     </div>
     ${hasPrompt ? '<p class="prompt-hint">The review prompt packages every flagged item — evidence, reasons, protected tokens, and the document — as Markdown for an LLM (or a colleague) to propose resolutions. The pipeline itself never calls one.</p>' : ''}
     <div class="tabs" role="tablist">
-      ${sections.map((s) => `<button class="tab" role="tab" data-report-tab="${escapeHtml(s.title)}" aria-selected="${s.title === active.title}">${escapeHtml(s.title)}</button>`).join('')}
+      ${tabs.map((s) => `<button class="tab" role="tab" data-report-tab="${escapeHtml(s.title)}" aria-selected="${s.title === active.title}">${escapeHtml(s.title)}</button>`).join('')}
     </div>
     ${activeBody}`;
 
   panelEl.querySelectorAll('[data-report-tab]').forEach((el) => {
     el.addEventListener('click', () => { state.reportTab = el.dataset.reportTab; render(); });
   });
+
+  if (active.synthetic) {
+    panelEl.querySelectorAll('[data-compare-view]').forEach((el) => {
+      el.addEventListener('click', () => { state.compareView = el.dataset.compareView; render(); });
+    });
+    syncScroll(document.getElementById('cmp-original'), document.getElementById('cmp-final'));
+  }
 
   if (hasPrompt) {
     document.getElementById('copy-prompt').addEventListener('click', async (e) => {
@@ -577,53 +629,6 @@ function renderReport() {
   });
 }
 
-/* ── 7 · Compare ──────────────────────────────────── */
-
-function syncScroll(a, b) {
-  let lock = false;
-  const follow = (from, to) => () => {
-    if (lock) return;
-    lock = true;
-    const range = from.scrollHeight - from.clientHeight;
-    const ratio = range > 0 ? from.scrollTop / range : 0;
-    to.scrollTop = ratio * (to.scrollHeight - to.clientHeight);
-    requestAnimationFrame(() => { lock = false; });
-  };
-  a.addEventListener('scroll', follow(a, b));
-  b.addEventListener('scroll', follow(b, a));
-}
-
-function renderCompare() {
-  const t = state.trail;
-  const rendered = state.compareView === 'rendered';
-  const pane = (text) => (rendered
-    ? `<div class="report-body">${renderMarkdown(text)}</div>`
-    : escapeHtml(text));
-  const paneClass = rendered ? 'rendered-view compare-pane' : 'source-view compare-pane';
-
-  panelEl.innerHTML = `
-    ${passHead(7, 'Compare', 'Original and final documents side by side. Scrolling either pane scrolls the other proportionally.')}
-    <div class="tabs" role="tablist">
-      <button class="tab" role="tab" data-compare-view="raw" aria-selected="${!rendered}">Raw</button>
-      <button class="tab" role="tab" data-compare-view="rendered" aria-selected="${rendered}">Rendered</button>
-    </div>
-    <div class="compare-grid">
-      <div class="compare-col">
-        <div class="label">Original · ${t.metrics.before.words} words</div>
-        <div class="${paneClass}" id="cmp-original">${pane(state.runSource)}</div>
-      </div>
-      <div class="compare-col">
-        <div class="label">Final · ${t.metrics.after.words} words</div>
-        <div class="${paneClass}" id="cmp-final">${pane(t.final)}</div>
-      </div>
-    </div>`;
-
-  panelEl.querySelectorAll('[data-compare-view]').forEach((el) => {
-    el.addEventListener('click', () => { state.compareView = el.dataset.compareView; render(); });
-  });
-  syncScroll(document.getElementById('cmp-original'), document.getElementById('cmp-final'));
-}
-
 /* ── Render loop ──────────────────────────────────── */
 
 function render() {
@@ -636,7 +641,6 @@ function render() {
     case 4: renderTransform(); break;
     case 5: renderValidate(); break;
     case 6: renderReport(); break;
-    case 7: renderCompare(); break;
     default: renderInput();
   }
 }
