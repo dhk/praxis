@@ -524,11 +524,15 @@ table.data code, .before-after code {
 
 .footer {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: 12px;
   color: var(--text-dim);
   border-top: 1px solid var(--border-light);
   padding-top: 20px;
+}
+.footer-ack {
+  flex-basis: 100%;
 }
 
 /* ── Responsive ───────────────────────────────────── */
