@@ -1,0 +1,28 @@
+id: repo_docs
+version: 0.1.0
+title: Repo Docs (README, Design, How-To)
+transformations:
+  - id: RPD-001
+    title: Remove instruction filler
+    safety: safe
+    kind: phrase_delete
+  - id: RPD-002
+    title: Replace verbose phrases with concise equivalents
+    safety: low_risk
+    kind: phrase_replace
+  - id: RPD-003
+    title: Prefer plain verbs
+    safety: low_risk
+    kind: phrase_replace
+  - id: RPD-004
+    title: Flag unresolved placeholders
+    safety: review
+    kind: flag
+  - id: RPD-005
+    title: Flag hidden ownership
+    safety: review
+    kind: flag
+  - id: RPD-006
+    title: Flag long sentences for review
+    safety: review
+    kind: flag
