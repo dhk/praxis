@@ -122,7 +122,73 @@ RESUME_WRITING = Pack(
     ),
 )
 
-PACKS = {p.id: p for p in (CONCISE_SCIENTIFIC_WRITING, CLAUDE_SKILL_AUTHORING, RESUME_WRITING)}
+# Docs *about* a repo — README, design docs, how-tos — not the code itself.
+# Mechanical filler cuts apply automatically; unresolved placeholders and
+# ownership-hiding passives are judgment calls, so they're flagged rather
+# than edited. Long-sentence threshold is looser than the scientific-writing
+# pack since technical docs carry more compound/conditional clauses.
+REPO_DOCS = Pack(
+    id="repo_docs",
+    version="0.1.0",
+    title="Repo Docs (README, Design, How-To)",
+    phrase_rules=(
+        PhraseRule("RPD-001", "Remove instruction filler", r"\bPlease note that\s+", "", "Filler adds tokens without changing the instruction.", "safe"),
+        PhraseRule("RPD-001", "Remove instruction filler", r"\bIt is important to note that\s+", "", "Filler adds tokens without changing the instruction.", "safe"),
+        PhraseRule("RPD-002", "Replace verbose phrases with concise equivalents", r"\bin order to\b", "to", "Shorter form preserves purpose.", "low_risk"),
+        PhraseRule("RPD-002", "Replace verbose phrases with concise equivalents", r"\bmake use of\b", "use", "Shorter form preserves meaning.", "low_risk"),
+        PhraseRule("RPD-002", "Replace verbose phrases with concise equivalents", r"\bis able to\b", "can", "Shorter modal verb preserves ability claim.", "low_risk"),
+        PhraseRule("RPD-003", "Prefer plain verbs", r"\butilize\b", "use", "Plain verbs read faster in reference docs.", "low_risk"),
+    ),
+    flag_rules=(
+        FlagRule("RPD-004", "Flag unresolved placeholders",
+                 "Unresolved placeholder should be resolved before this doc ships.",
+                 action="review_unresolved_placeholder",
+                 pattern=r"\b(?:TODO|FIXME|TBD|coming soon)\b"),
+        FlagRule("RPD-005", "Flag hidden ownership",
+                 "Passive construction hides who decided or built this; name the owner.",
+                 action="review_hidden_ownership",
+                 pattern=r"\b(?:it was decided that|has been decided that|was implemented by)\b"),
+        FlagRule("RPD-006", "Flag long sentences for review",
+                 "Sentence contains {words} words; long sentences increase reader effort.",
+                 action="review_long_sentence", kind="long_sentence", threshold=40),
+    ),
+)
+
+# Product briefs and concept docs: buzzwords and unquantified impact claims
+# read as confidence but carry no evidence, so they're flagged rather than
+# auto-rewritten — there's rarely a mechanical substitute for "disruptive."
+# Long-sentence threshold is tighter than the docs pack since briefs are
+# written for a skimming executive audience.
+PM_WRITING = Pack(
+    id="pm_writing",
+    version="0.1.0",
+    title="Product Briefs & Concepts",
+    phrase_rules=(
+        PhraseRule("PMW-001", "Prefer plain verbs over buzzwords", r"\butilize\b", "use", "Plain verbs read faster than jargon.", "low_risk"),
+        PhraseRule("PMW-001", "Prefer plain verbs over buzzwords", r"\bleverage\b", "use", "Plain verbs read faster than jargon.", "low_risk"),
+        PhraseRule("PMW-002", "Replace verbose phrases with concise equivalents", r"\bin order to\b", "to", "Shorter form preserves purpose.", "low_risk"),
+        PhraseRule("PMW-002", "Replace verbose phrases with concise equivalents", r"\bat this point in time\b", "now", "Shorter form preserves meaning.", "low_risk"),
+    ),
+    flag_rules=(
+        FlagRule("PMW-003", "Flag buzzwords with no mechanical substitute",
+                 "Buzzword asserts value without evidence; replace with a concrete capability or metric.",
+                 action="review_buzzword",
+                 pattern=r"\b(?:synerg(?:y|ies)|disrupt(?:ive|ion)?|best[- ]in[- ]class|cutting[- ]edge|game[- ]changing|revolutionary|world[- ]class|frictionless)\b"),
+        FlagRule("PMW-004", "Flag unquantified impact claims",
+                 "Superlative claims impact without a number; add a metric or replace with the specific effect.",
+                 action="review_unquantified_superlative",
+                 pattern=r"\b(?:significant(?:ly)?|substantial(?:ly)?|dramatically|robust)\b"),
+        FlagRule("PMW-005", "Flag vague shipping commitments",
+                 "Vague modal on a shipping verb reads as a promise without a commitment; state what's actually decided.",
+                 action="review_vague_commitment",
+                 pattern=r"\b(?:may|might|could)\s+(?:ship|launch|release)\b"),
+        FlagRule("PMW-006", "Flag long sentences for review",
+                 "Sentence contains {words} words; long sentences increase reader effort.",
+                 action="review_long_sentence", kind="long_sentence", threshold=30),
+    ),
+)
+
+PACKS = {p.id: p for p in (CONCISE_SCIENTIFIC_WRITING, CLAUDE_SKILL_AUTHORING, RESUME_WRITING, REPO_DOCS, PM_WRITING)}
 DEFAULT_PACK_ID = CONCISE_SCIENTIFIC_WRITING.id
 
 def get_pack(pack_id: str) -> Pack:

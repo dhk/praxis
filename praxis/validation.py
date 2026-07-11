@@ -6,7 +6,14 @@ def protected_tokens(text: str) -> set[str]:
     # `\b` can never match right after `%` when it's followed by whitespace or
     # punctuation (both non-word chars) — requiring it there silently drops the
     # `%` from every "50% " in ordinary prose.
-    patterns = [r"https?://\S+", r"\b\d+(?:\.\d+)?%|\b\d+(?:\.\d+)?\b", r"\[[^\]]+\]", r"\([^)]*\d{4}[^)]*\)"]
+    patterns = [
+        r"https?://\S+",
+        r"\b\d+(?:\.\d+)?%|\b\d+(?:\.\d+)?\b",
+        r"\[[^\]]+\]",
+        r"\([^)]*\d{4}[^)]*\)",
+        r"```[\s\S]*?```",   # fenced code blocks
+        r"`[^`\n]+`",        # inline code spans
+    ]
     tokens: set[str] = set()
     for pattern in patterns:
         tokens.update(re.findall(pattern, text))

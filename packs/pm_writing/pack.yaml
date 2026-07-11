@@ -1,0 +1,28 @@
+id: pm_writing
+version: 0.1.0
+title: Product Briefs & Concepts
+transformations:
+  - id: PMW-001
+    title: Prefer plain verbs over buzzwords
+    safety: low_risk
+    kind: phrase_replace
+  - id: PMW-002
+    title: Replace verbose phrases with concise equivalents
+    safety: low_risk
+    kind: phrase_replace
+  - id: PMW-003
+    title: Flag buzzwords with no mechanical substitute
+    safety: review
+    kind: flag
+  - id: PMW-004
+    title: Flag unquantified impact claims
+    safety: review
+    kind: flag
+  - id: PMW-005
+    title: Flag vague shipping commitments
+    safety: review
+    kind: flag
+  - id: PMW-006
+    title: Flag long sentences for review
+    safety: review
+    kind: flag

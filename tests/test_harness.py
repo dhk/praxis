@@ -82,12 +82,44 @@ def test_same_document_treated_differently_by_each_pack():
     assert finals["resume_writing"] == text  # RES-004 is review-only; nothing applied
     assert len(set(finals.values())) == 3  # one input, three genuinely different outputs
 
+def test_repo_docs_pack():
+    source = Path("examples/repo_docs/input.md").read_text(encoding="utf-8")
+    result = run_pipeline(source, "repo_docs")
+    rule_ids = {o["rule_id"] for o in result["observations"]}
+    assert rule_ids == {"RPD-001", "RPD-002", "RPD-003", "RPD-004", "RPD-005", "RPD-006"}
+    assert result["pack"]["id"] == "repo_docs"
+    final = result["final"]
+    assert "Please note that" not in final
+    assert "It is important to note that" not in final
+    assert "utilize" not in final
+    # The fenced shell command is documentation content, not prose to edit.
+    assert "```bash\npip install example-project" in final
+    assert "example-project run docs/input.md --out artifacts/\n```" in final
+    assert result["validation"]["status"] == "pass"
+
+def test_pm_writing_pack():
+    source = Path("examples/pm_writing/input.md").read_text(encoding="utf-8")
+    result = run_pipeline(source, "pm_writing")
+    rule_ids = {o["rule_id"] for o in result["observations"]}
+    assert rule_ids == {"PMW-001", "PMW-002", "PMW-003", "PMW-004", "PMW-005", "PMW-006"}
+    assert result["pack"]["id"] == "pm_writing"
+    final = result["final"]
+    assert "Utilize" not in final and "utilize" not in final
+    assert "in order to" not in final
+    # Buzzwords and unquantified claims are flagged, never silently rewritten.
+    flagged_reasons = {t["reason"] for t in result["transformations"] if not t["applied"]}
+    assert any("Buzzword" in r for r in flagged_reasons)
+    assert any("Superlative" in r for r in flagged_reasons)
+    assert result["validation"]["status"] == "pass"
+
 def test_pack_registry_lists_all_packs():
     from praxis.packs import list_packs
     packs = {p["id"]: p for p in list_packs()}
     assert packs["concise_scientific_writing"]["transformations"] == 4
     assert packs["claude_skill_authoring"]["transformations"] == 6
     assert packs["resume_writing"]["transformations"] == 6
+    assert packs["repo_docs"]["transformations"] == 6
+    assert packs["pm_writing"]["transformations"] == 6
 
 def test_render_prompt_packages_flagged_items():
     from praxis.handoff import render_prompt
@@ -140,6 +172,22 @@ def test_validation_protects_percent_sign():
     result = validate(original, stripped)
     assert result["status"] == "fail"
     assert "23%" in result["checks"]["missing_protected_tokens"]
+
+def test_validation_protects_fenced_code_blocks():
+    from praxis.validation import protected_tokens, validate
+    original = "Run it:\n\n```bash\npip install example-project\n```\n\nDone."
+    mutated = "Run it:\n\n```bash\npip install example\n```\n\nDone."  # simulates a rule editing inside the fence
+    assert "```bash\npip install example-project\n```" in protected_tokens(original)
+    result = validate(original, mutated)
+    assert result["status"] == "fail"
+
+def test_validation_protects_inline_code_spans():
+    from praxis.validation import protected_tokens, validate
+    original = "Utilize the `--apply` flag to write changes."
+    mutated = "Utilize the `--apply-now` flag to write changes."  # simulates a rule editing inside the span
+    assert "`--apply`" in protected_tokens(original)
+    result = validate(original, mutated)
+    assert result["status"] == "fail"
 
 def test_validate_does_not_mutate_transformations():
     # validate() used to mutate Transformation.validation_status in place as
