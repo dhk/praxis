@@ -1,0 +1,5 @@
+# Every path in this repo, by default.
+# Not a hard merge gate (required_approving_review_count is 0 to avoid a
+# self-approval deadlock for a solo maintainer) -- this documents who is
+# authorized and auto-requests review, without blocking self-merged PRs.
+* @dhk
