@@ -1,53 +1,58 @@
 # praxis
 
-> A reference architecture and executable harness for transparent, auditable document transformation pipelines.
+> An early reference implementation for transparent, auditable document transformation pipelines.
 
-praxis treats document improvement as an engineering workflow rather than a black-box rewrite. A source document moves through named operations that emit observations, recommendations, transformations, validation checks, and reports.
+Praxis turns document improvement into an inspectable workflow. Instead of returning only a rewritten document, it records what it observed, what it recommended, which changes it made, and whether protected content survived. That trail makes a transformation reviewable, testable, and portable between the command line and the browser.
 
-The first vertical slice implements a small **Concise Scientific Writing** transformation pack inspired by evidence-based guidance for concise technical prose. It is deliberately limited: it proves the harness, artifact trail, and validation loop before expanding the architecture.
+## Try Praxis
 
-## Core idea
+Choose either verified entry point:
 
-Every transformation begins as an observation.
+- **[Open the live viewer](https://dhk.github.io/praxis/)** — paste or upload Markdown, run a transformation pack locally in your browser, inspect every pass, and download the artifacts. No account or backend is involved.
+- **Run the local harness from source** — clone this repository and use the Python CLI as described below.
 
-```text
-Source Document
-  -> Parse
-  -> Observe
-  -> Recommend
-  -> Transform
-  -> Validate
-  -> Report
+Praxis is an early executable harness, not a finished editor or a published product. There is currently **no PyPI package, npm package, or curl installer**. The browser viewer and a source checkout are the supported ways to try it.
+
+## Why an artifact trail?
+
+```mermaid
+flowchart LR
+    subgraph BlackBox["Black-box rewriting"]
+        A["Source"] --> B["Opaque rewrite"] --> C["Final document"]
+    end
+    subgraph Praxis["Praxis"]
+        D["Source"] --> E["Named, testable passes"]
+        E --> F["Observations"]
+        E --> G["Recommendations"]
+        E --> H["Transformations"]
+        E --> I["Validation"]
+        F & G & H & I --> J["Final document + audit report"]
+    end
 ```
 
-Each run creates an artifact directory containing machine-readable JSON and human-readable Markdown.
+The difference is practical: reviewers can trace each edit to evidence, check whether it was applied, inspect validation results, and retain the complete run as files rather than trusting an unexplained before-and-after.
 
-## Quick start
+## Install and run from source
+
+Praxis requires Python 3.10 or newer. The editable install below is a source install; it does not download a published Praxis distribution.
+
+```bash
+git clone https://github.com/dhk/praxis.git
+cd praxis
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e ".[test]"
+python -m pytest
+```
+
+Run the default Concise Scientific Writing pack and write a complete artifact trail:
 
 ```bash
 python -m praxis run examples/concise_scientific_writing/input.md --out artifacts/demo
 ```
 
-Packs are selectable with `--pack` (see `praxis/packs.py` for the registry):
-
-```bash
-python -m praxis run examples/claude_skill/SKILL.md --pack claude_skill_authoring --out artifacts/skill
-```
-
-The `claude_skill_authoring` pack encodes corpus-measured best practices from
-the [skill-map](https://github.com/dhk/skill-map) study of ~5,000 crawled
-Claude skills.
-
-## Web viewer
-
-A static, browser-only viewer for the artifact trail lives in [`web/`](web/):
-the same Python package runs unchanged in the browser via Pyodide, and the UI
-lets you step through each pass and its artifacts. See
-[`web/README.md`](web/README.md) to build it locally or deploy it to GitHub
-Pages or Vercel; the UX spec is in
-[`docs/design/praxis-viewer/`](docs/design/praxis-viewer/).
-
-Then inspect:
+Expected final lines include `Validation: pass` and the generated directory contains:
 
 ```text
 artifacts/demo/
@@ -59,29 +64,34 @@ artifacts/demo/
 └── report.md
 ```
 
-Run the test harness:
+Packs are selected with `--pack`. For example:
 
 ```bash
-python -m pytest
+python -m praxis run examples/claude_skill/SKILL.md --pack claude_skill_authoring --out artifacts/skill
 ```
 
-## What this is
+The `claude_skill_authoring` pack encodes corpus-measured practices from the [skill-map](https://github.com/dhk/skill-map) study of roughly 5,000 crawled Claude skills.
 
-- A small executable harness.
-- A proof of an auditable transformation pipeline.
-- A place to encode writing guidance as transformations, not monolithic prompts.
+## One engine, two interfaces
 
-## What this is not yet
+```mermaid
+flowchart TB
+    CLI["Python CLI"] --> Engine["Shared Python package\npraxis/"]
+    Viewer["Browser viewer"] --> Worker["Web worker + Pyodide"] --> Engine
+    Engine --> Packs["Transformation packs"]
+    Engine --> Trail["Same six-file artifact contract"]
+```
 
-- A general-purpose editor.
-- A polished CLI product.
-- A model-independent specification.
-- A replacement for human review.
+The CLI imports the Python engine directly. The static viewer loads those same Python source files into Pyodide; it is not a JavaScript rewrite of the rules. Browser documents are processed locally: there are no accounts, application backend, or server-side document uploads. The viewer can download a zip of the same six artifact files written by the CLI. See [Architecture](docs/architecture.md) for the boundaries and data flow, or [Viewer documentation](web/README.md) to build the site locally.
 
-## Design principles
+## Current maturity
+
+The first vertical slice proves the pass model, artifact trail, multiple transformation packs, validation loop, CLI, and browser interface. It intentionally does not claim semantic equivalence, comprehensive writing coverage, or production-editor ergonomics. Human review remains necessary, especially for recommendations marked for review.
+
+Design principles:
 
 1. Observe before changing.
-2. Every transformation requires evidence.
+2. Require evidence for every transformation.
 3. Preserve meaning unless explicitly instructed otherwise.
 4. Validate before acceptance.
 5. Emit artifacts at every step.
@@ -90,13 +100,14 @@ python -m pytest
 ## Repository layout
 
 ```text
-praxis/                  Python harness
-packs/concise_scientific_writing/
-                             Reference transformation pack
-examples/concise_scientific_writing/
-                             Golden example input
-artifacts/                   Generated outputs, ignored by git
-docs/                        Design notes
-spec/                        Early RFC/spec documents
-tests/                       Regression tests
+praxis/        Shared Python engine, CLI, models, rules, validation, and reports
+packs/         Human-readable metadata mirrors for transformation packs
+examples/      Inputs used for demos and pack-specific validation
+tests/         Python regression and artifact-contract tests
+web/           Static browser interface and Pyodide worker
+scripts/       Viewer build tooling
+docs/          Architecture and design documentation
+spec/          Early RFCs for the engine and viewer
 ```
+
+For development setup and change-specific checks, see [CONTRIBUTING.md](CONTRIBUTING.md).
