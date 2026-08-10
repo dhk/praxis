@@ -78,9 +78,9 @@ description.
   harness's stages 1:1; step 7 (Compare) is viewer-only.
 - **`web/src/markdown.js`** is a deliberately minimal Markdown renderer
   (headings, paragraphs, tables, fenced code, inline emphasis/links) — no
-  lists, no blockquotes. `report.py`'s `splitReportSections` (in
-  `main.js`) splits the Report panel into tabs only on its four exact
-  section titles (`Metrics`, `Validation`, `Transformation Diff Log`,
+  lists, no blockquotes. `splitReportSections` (in `main.js`) splits the
+  Report panel into tabs only on the four exact section titles `report.py`
+  emits (`Metrics`, `Validation`, `Transformation Diff Log`,
   `Final Document`) — never on any `##` — because the embedded final
   document can itself contain user H2 headings (a resume's
   `## Experience`) that must stay inside the Final Document tab rather
