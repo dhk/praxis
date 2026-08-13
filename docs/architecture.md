@@ -56,6 +56,80 @@ flowchart LR
 | `web/src/worker.js` | Loads the Python package in Pyodide and runs it off the UI thread. | The browser/Python bridge; it must preserve the CLI artifact contract. |
 | `scripts/build_site.sh` | Assembles the static site, Python sources, examples, and pinned Pyodide runtime. | Build-time packaging only; it is not an application backend. |
 
+## Implementation notes
+
+Detail below elaborates specific components from the table above; it's
+the operational "why it's built this way," not a second architecture
+description.
+
+- **`web/sw.js` (service worker) uses stale-while-revalidate, not
+  cache-first.** Every request is answered from cache immediately, but a
+  network fetch always runs in the background and refreshes the cache.
+  A pure cache-first strategy (what shipped originally) meant a returning
+  visitor could get stuck on an old deploy indefinitely, since the
+  service worker only re-precaches when its own file's bytes change. Bump
+  the `CACHE` version string on any change to this file.
+- **`web/src/main.js` is a single-file, dependency-free UI**: one `state`
+  object, one `render()` dispatcher keyed on `state.step` (1-7), no
+  framework. Each pass panel (`renderInput`, `renderObserve`, ...
+  `renderCompare`) fully replaces `panelEl.innerHTML` and re-attaches its
+  own listeners on every render — panels never diff or persist DOM
+  between renders, only `state` persists. The six passes mirror the
+  harness's stages 1:1; step 7 (Compare) is viewer-only.
+- **`web/src/markdown.js`** is a deliberately minimal Markdown renderer
+  (headings, paragraphs, tables, fenced code, inline emphasis/links) — no
+  lists, no blockquotes. `splitReportSections` (in `main.js`) splits the
+  Report panel into tabs only on the four exact section titles `report.py`
+  emits (`Metrics`, `Validation`, `Transformation Diff Log`,
+  `Final Document`) — never on any `##` — because the embedded final
+  document can itself contain user H2 headings (a resume's
+  `## Experience`) that must stay inside the Final Document tab rather
+  than being mistaken for a new report section.
+- **A `Pack` is pure data — the extension point, and the only place a new
+  pack should touch.** `packs.py` defines three frozen dataclasses:
+  - `PhraseRule(id, title, pattern, replacement, reason, safety="safe")`
+    — rewrite rules, matched with `re.IGNORECASE` and applied
+    automatically. `safety` is `safe` or `low_risk`.
+  - `FlagRule(id, title, reason, action, kind="regex", pattern="",
+    threshold=0)` — observation-only, never edits anything, and always
+    recorded as `safety="review"` regardless of what the rule says.
+    `kind="regex"` matches `pattern` with `IGNORECASE | MULTILINE`
+    (`rules.py`'s `FLAG_REGEX_FLAGS` — note the phrase rules above use
+    `IGNORECASE` alone); `kind="long_sentence"` instead flags sentences
+    over `threshold` words and formats `reason` with the actual count
+    via `{words}`.
+  - `Pack(id, version, title, phrase_rules, flag_rules)`. Rule IDs may
+    legitimately repeat across rules that share a title, which is why
+    `rule_count()` counts distinct IDs rather than tuple length.
+
+  `rules.py` is generic over all of this, so a new pack is a new `Pack`
+  in `packs.py` and nothing else.
+- **Each pack's `packs/<id>/pack.yaml`** is a human-readable metadata
+  mirror of the `Pack` defined in `packs.py` — not read by the code, kept
+  in sync by hand. See the Non-goals note below: this is deliberate, not
+  a gap.
+- **The worker computes the word-level diff and the artifact zip in
+  Python, not JS** — `web/src/worker.js` imports `difflib` and `zipfile`
+  from the Pyodide runtime. Neither is reimplemented in JavaScript, and
+  neither should be: the diff shown in the Compare panel and the zip a
+  visitor downloads have to match what the CLI would produce, which is
+  the same reason `worker.js` is the sole Python boundary. Reaching for
+  a JS diff library here is the locally-plausible edit that quietly
+  breaks the byte-identical guarantee.
+- **Deploy** (`.github/workflows/deploy-pages.yml`) builds and deploys to
+  GitHub Pages on every push to `main`. GitHub Pages **Source must be set
+  to "GitHub Actions"** in repo settings (Settings → Pages) — on "Deploy
+  from a branch" instead, GitHub silently runs its own separate
+  `pages-build-deployment` workflow that Jekyll-renders `README.md` as
+  the site, and this project's own workflow keeps reporting success while
+  something else entirely is served. `vercel.json` supports deploying the
+  same build to Vercel instead.
+- **`.github/workflows/lock-merged-branch.yml`** locks a PR's branch
+  read-only immediately after merge (a stray later push fails loudly
+  instead of landing silently unreachable commits) — only runs if a
+  `BRANCH_ADMIN_TOKEN` repo secret is configured (fine-grained PAT,
+  Administration: read/write); no-ops cleanly otherwise.
+
 ## Artifact contract
 
 Every successful run exposes the following six durable artifacts:
