@@ -85,10 +85,37 @@ description.
   document can itself contain user H2 headings (a resume's
   `## Experience`) that must stay inside the Final Document tab rather
   than being mistaken for a new report section.
+- **A `Pack` is pure data — the extension point, and the only place a new
+  pack should touch.** `packs.py` defines three frozen dataclasses:
+  - `PhraseRule(id, title, pattern, replacement, reason, safety="safe")`
+    — rewrite rules, matched with `re.IGNORECASE` and applied
+    automatically. `safety` is `safe` or `low_risk`.
+  - `FlagRule(id, title, reason, action, kind="regex", pattern="",
+    threshold=0)` — observation-only, never edits anything, and always
+    recorded as `safety="review"` regardless of what the rule says.
+    `kind="regex"` matches `pattern` with `IGNORECASE | MULTILINE`
+    (`rules.py`'s `FLAG_REGEX_FLAGS` — note the phrase rules above use
+    `IGNORECASE` alone); `kind="long_sentence"` instead flags sentences
+    over `threshold` words and formats `reason` with the actual count
+    via `{words}`.
+  - `Pack(id, version, title, phrase_rules, flag_rules)`. Rule IDs may
+    legitimately repeat across rules that share a title, which is why
+    `rule_count()` counts distinct IDs rather than tuple length.
+
+  `rules.py` is generic over all of this, so a new pack is a new `Pack`
+  in `packs.py` and nothing else.
 - **Each pack's `packs/<id>/pack.yaml`** is a human-readable metadata
   mirror of the `Pack` defined in `packs.py` — not read by the code, kept
   in sync by hand. See the Non-goals note below: this is deliberate, not
   a gap.
+- **The worker computes the word-level diff and the artifact zip in
+  Python, not JS** — `web/src/worker.js` imports `difflib` and `zipfile`
+  from the Pyodide runtime. Neither is reimplemented in JavaScript, and
+  neither should be: the diff shown in the Compare panel and the zip a
+  visitor downloads have to match what the CLI would produce, which is
+  the same reason `worker.js` is the sole Python boundary. Reaching for
+  a JS diff library here is the locally-plausible edit that quietly
+  breaks the byte-identical guarantee.
 - **Deploy** (`.github/workflows/deploy-pages.yml`) builds and deploys to
   GitHub Pages on every push to `main`. GitHub Pages **Source must be set
   to "GitHub Actions"** in repo settings (Settings → Pages) — on "Deploy
