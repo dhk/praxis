@@ -122,7 +122,48 @@ RESUME_WRITING = Pack(
     ),
 )
 
-PACKS = {p.id: p for p in (CONCISE_SCIENTIFIC_WRITING, CLAUDE_SKILL_AUTHORING, RESUME_WRITING)}
+# Derived from ASD-STE100 (Simplified Technical English), which governs
+# *language* where the design layer's structures govern *order* — the
+# distinction the pack exists to make usable. It implements the
+# transferable half: sentence length, hidden actors, compound
+# instructions, plain-word substitution. It deliberately does NOT
+# implement the STE100 Dictionary (~900 approved words, one meaning and
+# one part of speech each), which is the mechanism that makes STE100
+# STE100. Approximating that list by hand would be our vocabulary
+# wearing the standard's name, firing on most of any real document with
+# no corpus to check it against. Hence the title: derived from, not
+# conformant to. Rules cite what the standard asks for rather than a
+# clause number, because the numbers cannot be verified from here.
+CONTROLLED_LANGUAGE = Pack(
+    id="controlled_language",
+    version="0.1.0",
+    title="Controlled Language (STE100-derived)",
+    phrase_rules=(
+        PhraseRule("CTL-001", "Remove filler before an instruction", r"\bPlease note that\s+", "", "Filler delays the instruction without qualifying it.", "safe"),
+        PhraseRule("CTL-001", "Remove filler before an instruction", r"\bIt should be noted that\s+", "", "Filler delays the instruction without qualifying it.", "safe"),
+        PhraseRule("CTL-001", "Remove filler before an instruction", r"\bIt is important to note that\s+", "", "Filler delays the instruction without qualifying it.", "safe"),
+        PhraseRule("CTL-002", "Prefer the plainer word", r"\butilize\b", "use", "Controlled language keeps one plain word per meaning.", "low_risk"),
+        PhraseRule("CTL-002", "Prefer the plainer word", r"\bprior to\b", "before", "Controlled language keeps one plain word per meaning.", "low_risk"),
+        PhraseRule("CTL-002", "Prefer the plainer word", r"\bsubsequent to\b", "after", "Controlled language keeps one plain word per meaning.", "low_risk"),
+        PhraseRule("CTL-002", "Prefer the plainer word", r"\bin the event that\b", "if", "Controlled language keeps one plain word per meaning.", "low_risk"),
+        PhraseRule("CTL-002", "Prefer the plainer word", r"\bin order to\b", "to", "Controlled language keeps one plain word per meaning.", "low_risk"),
+    ),
+    flag_rules=(
+        FlagRule("CTL-003", "Flag sentences above the controlled-language limit",
+                 "Sentence contains {words} words; controlled language keeps sentences to 20 words or fewer.",
+                 action="review_long_sentence", kind="long_sentence", threshold=20),
+        FlagRule("CTL-004", "Flag a hidden actor",
+                 "Passive construction leaves the actor unnamed; controlled language names who does the thing.",
+                 action="review_hidden_actor",
+                 pattern=r"\b(?:is|are|was|were|be|been|being)\s+(?:\w+ly\s+)?\w+(?:ed|en)\b(?!\s+by\b)"),
+        FlagRule("CTL-005", "Flag a compound instruction",
+                 "Two instructions share one sentence; controlled language gives each its own.",
+                 action="review_compound_instruction",
+                 pattern=r"\band then\b|\b,\s*and\s+(?:also\s+)?(?:you\s+)?(?:must|should|need to)\b"),
+    ),
+)
+
+PACKS = {p.id: p for p in (CONCISE_SCIENTIFIC_WRITING, CLAUDE_SKILL_AUTHORING, RESUME_WRITING, CONTROLLED_LANGUAGE)}
 DEFAULT_PACK_ID = CONCISE_SCIENTIFIC_WRITING.id
 
 def get_pack(pack_id: str) -> Pack:

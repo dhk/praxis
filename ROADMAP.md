@@ -9,7 +9,7 @@ wave that ends in scaffolding has not ended.
 
 | Wave | Status |
 |---|---|
-| 0 — Transformation harness | **Delivered** — pass model, artifact trail, three packs, validation, CLI, browser viewer |
+| 0 — Transformation harness | **Delivered** — pass model, artifact trail, four packs, validation, CLI, browser viewer |
 | 1 — Communication design, MCP-first | **In progress** — contract, strategy, materiality, evaluation, shading audit, HTML artifact, MCP server |
 | 2 — Transform mode and voice | **Delivered** (transform mode, located edits, protected spans, voice habits — RFC-0004); viewer work deferred |
 | 3 — Genre packs and reader models | Not started |

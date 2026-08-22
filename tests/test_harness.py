@@ -82,12 +82,45 @@ def test_same_document_treated_differently_by_each_pack():
     assert finals["resume_writing"] == text  # RES-004 is review-only; nothing applied
     assert len(set(finals.values())) == 3  # one input, three genuinely different outputs
 
+def test_controlled_language_pack():
+    source = Path("examples/controlled_language/input.md").read_text(encoding="utf-8")
+    result = run_pipeline(source, "controlled_language")
+    rule_ids = {o["rule_id"] for o in result["observations"]}
+    assert rule_ids == {"CTL-001", "CTL-002", "CTL-003", "CTL-004", "CTL-005"}
+    final = result["final"]
+    assert "Please note that" not in final
+    assert "utilize" not in final and "Prior to" not in final
+    # Flags never edit: the hidden actors and the compound instruction survive
+    # for a human to decide about.
+    assert "and then" in final
+    assert result["validation"]["status"] == "pass"
+    assert "https://example.com/runbook" in final and "250" in final
+
+def test_a_named_actor_is_not_a_hidden_actor():
+    # CTL-004 exists to find passives that drop the actor. "approved by the
+    # platform group" names one, so flagging it would be the false positive
+    # that buries the real ones.
+    named = run_pipeline("The migration was approved by the platform group.", "controlled_language")
+    hidden = run_pipeline("The migration was approved.", "controlled_language")
+    assert not [o for o in named["observations"] if o["rule_id"] == "CTL-004"]
+    assert [o for o in hidden["observations"] if o["rule_id"] == "CTL-004"]
+
+def test_controlled_language_is_titled_as_derived_not_conformant():
+    # The pack implements the transferable half of STE100 and not its
+    # Dictionary. The title is the only part of that carried into every
+    # artifact, so it is the thing a reader has to see.
+    from praxis.packs import get_pack
+    title = get_pack("controlled_language").title
+    assert "STE100-derived" in title
+    assert "Simplified Technical English" not in title
+
 def test_pack_registry_lists_all_packs():
     from praxis.packs import list_packs
     packs = {p["id"]: p for p in list_packs()}
     assert packs["concise_scientific_writing"]["transformations"] == 4
     assert packs["claude_skill_authoring"]["transformations"] == 6
     assert packs["resume_writing"]["transformations"] == 6
+    assert packs["controlled_language"]["transformations"] == 5
 
 def test_render_prompt_packages_flagged_items():
     from praxis.handoff import render_prompt
