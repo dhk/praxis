@@ -26,14 +26,34 @@ move, and audits whatever text comes back against those constraints.
 An **auditable communication-design instrument**, in two layers over one
 Python engine.
 
-| Layer | Question it answers | Status |
-|---|---|---|
-| **Transformation harness** | Which mechanical defects can be fixed with evidence, and did protected content survive? | Shipped |
-| **Design layer** | What should this message do for this reader at this level of risk, and does the draft do it? | Wave 1 |
+Communication mechanisms divide on two axes. Some govern **language** —
+which words, how long a sentence, who gets named. Others govern
+**order** — what comes first, what supports it, what the reader is left
+holding. STE100 is a language mechanism; BLUF, the Pyramid Principle,
+SCQA, and PREP are order mechanisms. They are not competitors, and the
+distinction is not academic: you can write a BLUF in STE100, and a
+message can fail on either axis independently. Controlled vocabulary
+will not rescue an email that opens with background instead of the ask.
+
+praxis has one layer per axis.
+
+| Layer | Axis | Question it answers | Status |
+|---|---|---|---|
+| **Transformation harness** | Language | Which mechanical defects can be fixed with evidence, and did protected content survive? | Shipped |
+| **Design layer** | Order | What should this message do for this reader at this level of risk, and does the draft do it? | Wave 1 |
 
 The harness applies rules. The design layer applies *judgment* — but
 holds the judgment in data a human can read and overrule, rather than in
 a prompt.
+
+The axes are the extension point, not just the description: a new rule
+belongs to whichever axis its question sits on, which decides whether it
+becomes a `Pack` or a `Structure` without anyone having to arbitrate.
+
+**Where the split is currently incomplete.** The design layer recommends
+a structure; it cannot yet select or enforce a language mechanism, which
+remains a `--pack` flag the writer has to remember. Composing the two —
+the thing "a BLUF in STE100" names — is supported in halves.
 
 Both produce the same kind of output: an artifact trail. Not a verdict,
 not a score, but a record of what was observed, what was recommended,
