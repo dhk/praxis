@@ -90,6 +90,8 @@ product.
 - [x] An empty contract produces `unknown`, never `gap`.
 - [x] The page renders in both themes with no script and no external URL.
 - [x] The engine imports nothing outside the standard library.
+- [x] CI proves it on every pull request, rather than a contributor
+      asserting it.
 - [x] An alternative is compared with the recommendation, not the draft,
       and every delta names its reference.
 - [x] A first-run walkthrough that takes a real message end to end

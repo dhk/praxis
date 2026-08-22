@@ -1,0 +1,175 @@
+name: Tests
+
+# The repository's premise is auditability, so "the tests passed" should be
+# something a reviewer can see rather than something a contributor asserts.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: pytest (py${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The floor declared in pyproject.toml, and current. A break on the
+        # floor is the one CI catches that local development never will.
+        python: ["3.10", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[test,mcp]"
+      - name: Run the suite
+        run: python -m pytest -q
+
+  core-only:
+    # `mcp` is an optional extra and must stay one: the engine has to work,
+    # and be testable, in a checkout that never installed a transport. This
+    # job fails if an import of it leaks out of praxis/mcp/.
+    #
+    # It also guards the subtler failure. A module-level `pytest.importorskip`
+    # skips the entire file, not just the tests that need the import — which
+    # once cost this suite six session-store tests that have no dependency on
+    # the transport at all, while still reporting success. Skips are not
+    # failures, so the job asserts those tests actually ran.
+    name: engine without the mcp extra
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install without extras
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[test]"
+      - name: Confirm the transport really is absent
+        run: |
+          if python -c "import mcp" 2>/dev/null; then
+            echo "::error::mcp is installed; this job cannot prove the extra is optional"
+            exit 1
+          fi
+      - name: Run the suite
+        run: python -m pytest -q
+
+      - name: Tests that do not need the transport must still have run
+        run: |
+          out=$(python -m pytest -q tests/test_design_session.py \
+                  -k "round_trip or escape_the_workspace or derived_analysis")
+          echo "$out"
+          echo "$out" | grep -q "3 passed" || {
+            echo "::error::store tests were skipped without the mcp extra;"
+            echo "::error::a module-level importorskip has probably crept back in"
+            exit 1
+          }
+
+  documented-commands:
+    # CONTRIBUTING.md asks that every documented command be run before a
+    # change lands. This runs the ones the README and CLAUDE.md promise, and
+    # checks the artifact contract they describe actually appears.
+    name: documented commands
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[test,mcp]"
+
+      - name: Transformation harness writes the six-file artifact trail
+        run: |
+          python -m praxis run examples/concise_scientific_writing/input.md --out artifacts/demo
+          for f in observations recommendations transformations validation; do
+            test -s "artifacts/demo/$f.json" || { echo "::error::missing $f.json"; exit 1; }
+          done
+          test -s artifacts/demo/final.md
+          test -s artifacts/demo/report.md
+
+      - name: Every pack runs
+        run: |
+          python -m praxis run examples/claude_skill/SKILL.md \
+            --pack claude_skill_authoring --out artifacts/skill
+          python -m praxis run examples/resume/input.md \
+            --pack resume_writing --out artifacts/resume --prompt
+          test -s artifacts/resume/prompt.md
+
+      - name: Design layer answers, with a draft and without one
+        run: |
+          python -m praxis design examples/decision_request/input.md \
+            --set intent=request --set stakes=high --set time_available=low \
+            --set sensitivity=high --set power_distance=upward \
+            --out artifacts/design.html
+          test -s artifacts/design.html
+          python -m praxis design --set intent=repair --out artifacts/plan.html
+          test -s artifacts/plan.html
+
+      - name: The rendered page reaches nothing
+        # Enforced by test too, but a page that phones home is the failure
+        # most worth catching twice.
+        run: |
+          if grep -Eq 'https?://|<script' artifacts/design.html; then
+            echo "::error::the rendered page contains a script or an external URL"
+            exit 1
+          fi
+
+      - name: The MCP server starts and lists its tools
+        run: |
+          timeout 30 python - <<'PY'
+          import asyncio
+          from praxis.mcp.server import mcp
+          tools = asyncio.run(mcp.list_tools())
+          names = sorted(t.name for t in tools)
+          print("tools:", names)
+          expected = {"design_open", "design_update", "design_detail", "design_shade",
+                      "design_render", "design_list", "design_schema"}
+          missing = expected - set(names)
+          assert not missing, f"missing tools: {missing}"
+          for tool in tools:
+              assert tool.description, f"{tool.name} has no description"
+          PY
+
+  viewer:
+    # scripts/build_site.sh runs on every push to main to deploy the viewer.
+    # Without this, a broken build is discovered only after merge, by the
+    # deploy failing.
+    name: viewer builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Cache Pyodide runtime
+        uses: actions/cache@v4
+        with:
+          path: .cache
+          key: pyodide-${{ hashFiles('scripts/build_site.sh') }}
+      - name: Build
+        run: bash scripts/build_site.sh
+      - name: The bundle carries the engine and not the transport
+        run: |
+          test -s dist/py/praxis/pipeline.py
+          test -s dist/py/praxis/design.py
+          test -s dist/py/manifest.json
+          if [ -e dist/py/praxis/mcp ]; then
+            echo "::error::praxis/mcp leaked into the browser bundle"
+            exit 1
+          fi

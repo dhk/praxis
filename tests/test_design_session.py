@@ -1,9 +1,14 @@
 """Session persistence and the MCP tool surface.
 
 `praxis.mcp.store` has no third-party dependency, so it is always
-tested. The server itself needs the `mcp` extra and is skipped without
-it — the design layer has to remain testable in a checkout that never
-installed a transport.
+tested. The server needs the `mcp` extra and is skipped without it — the
+design layer has to remain testable in a checkout that never installed a
+transport.
+
+That skip is per-test, deliberately. A module-level `importorskip` reads
+like the same thing and is not: it skips the whole file, so a checkout
+without the extra silently lost the six store tests as well, and the
+suite reported success having run neither.
 """
 
 import json
@@ -12,6 +17,13 @@ from pathlib import Path
 import pytest
 
 from praxis.mcp import store
+
+try:
+    from praxis.mcp import server as mcp_server
+except ImportError:  # the `mcp` extra is not installed
+    mcp_server = None
+
+needs_mcp = pytest.mark.skipif(mcp_server is None, reason="needs the `mcp` extra")
 
 
 @pytest.fixture(autouse=True)
@@ -65,14 +77,12 @@ def test_corrupt_session_files_do_not_break_the_listing():
     assert [s["id"] for s in store.listing()] == ["good"]
 
 
-mcp_server = pytest.importorskip("praxis.mcp.server", reason="needs the `mcp` extra")
-
-
 DRAFT = ("We reviewed the release plan and identified a risk in the data-migration step. "
          "We may need additional engineering support, and I would like to discuss the "
          "implications in our next meeting.")
 
 
+@needs_mcp
 def test_the_first_call_answers_instead_of_interviewing():
     """There is no intake to get through. Even with nothing stated, the
     first call answers — at whatever confidence the situation supports,
@@ -82,6 +92,7 @@ def test_the_first_call_answers_instead_of_interviewing():
     assert "confidence" in opened["progress"]
 
 
+@needs_mcp
 def test_a_reply_is_the_answer_not_the_apparatus():
     """A regression guard on the thing this interface is for.
 
@@ -95,6 +106,7 @@ def test_a_reply_is_the_answer_not_the_apparatus():
     assert not {"gaps", "invariants", "strategy", "assumptions_to_confirm"} & set(opened)
 
 
+@needs_mcp
 def test_at_most_one_question_is_offered():
     """One, not three. A writer who has had enough should not have to
     decline a list."""
@@ -105,6 +117,7 @@ def test_at_most_one_question_is_offered():
         assert question["ask"] and question["options"] and question["changes"]
 
 
+@needs_mcp
 def test_progress_says_when_nothing_further_would_help():
     """The completion signal, which is the unusual half of this."""
     full = {"intent": "request", "stakes": "high", "medium": "email", "urgency": "today",
@@ -115,6 +128,7 @@ def test_progress_says_when_nothing_further_would_help():
     assert "nothing else you could tell me" in opened["progress"]
 
 
+@needs_mcp
 def test_detail_is_available_but_never_volunteered():
     opened = mcp_server.design_open(DRAFT, stated={"intent": "request", "stakes": "high"})
     blob = json.dumps(opened)
@@ -130,6 +144,7 @@ def test_detail_is_available_but_never_volunteered():
     assert "situation.stakes: high" in contract["detail"]
 
 
+@needs_mcp
 def test_detail_can_return_every_question_at_once():
     opened = mcp_server.design_open(DRAFT)
     everything = mcp_server.design_detail(opened["session"], "questions")
@@ -138,12 +153,14 @@ def test_detail_can_return_every_question_at_once():
     assert "not_worth_asking" in everything
 
 
+@needs_mcp
 def test_an_unknown_depth_lists_what_exists():
     opened = mcp_server.design_open(DRAFT)
     result = mcp_server.design_detail(opened["session"], "everything")
     assert "error" in result and "questions" in result["available"]
 
 
+@needs_mcp
 def test_the_tool_loop_runs_end_to_end():
     opened = mcp_server.design_open(
         DRAFT, stated={"intent": "request", "stakes": "high", "medium": "email"},
@@ -167,11 +184,13 @@ def test_the_tool_loop_runs_end_to_end():
     assert rendered["html"].startswith("<!doctype html>")
 
 
+@needs_mcp
 def test_a_session_is_named_from_the_writing_not_the_salutation():
     opened = mcp_server.design_open("Hi Priya,\n\nWe found a defect in the migration step.")
     assert opened["session"].startswith("we-found-a-defect")
 
 
+@needs_mcp
 def test_a_bad_field_value_returns_an_error_not_an_exception():
     """A model guessing a value should be corrected, not crashed."""
     opened = mcp_server.design_open("Thing")
@@ -180,6 +199,7 @@ def test_a_bad_field_value_returns_an_error_not_an_exception():
     assert result["hint"]
 
 
+@needs_mcp
 def test_the_server_exposes_its_own_vocabulary():
     schema = mcp_server.design_schema()
     assert {"fields", "structures", "shades"} == set(schema)

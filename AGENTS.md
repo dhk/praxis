@@ -170,6 +170,11 @@ bash scripts/build_site.sh && python -m http.server 8000 -d dist
 
 Do not claim checks passed unless they were executed.
 
+CI (`.github/workflows/tests.yml`) runs the suite on Python 3.10 and 3.13,
+proves the `mcp` extra is optional, runs every documented command, and
+builds the viewer. It does not cover the browser and artifact checks
+below — those remain manual.
+
 ## Validating a change
 
 Always run `python -m pytest`. Then add what the change requires:
