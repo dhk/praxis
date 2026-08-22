@@ -737,3 +737,74 @@ def test_mcp_subpackage_is_excluded_from_the_browser_bundle():
     build_script = Path("scripts/build_site.sh").read_text(encoding="utf-8")
     assert "cp praxis/*.py dist/py/praxis/" in build_script, \
         "the bundle copy is no longer a non-recursive glob; praxis/mcp may now leak into Pyodide"
+
+
+# --- the browser is a first-class surface, not a demo ------------------
+#
+# Not everyone using praxis has a model. A writer with only a browser must
+# get every decision the engine can make, so the worker's design path has
+# to return exactly what the library does — checked here by running the
+# worker's own Python, lifted out of the JavaScript file it lives in.
+
+def _worker_namespace() -> dict:
+    """Execute web/src/worker.js's PY_SETUP under CPython.
+
+    The setup block is a JS template literal, so `\\\\S` in the source is
+    `\\S` by the time Pyodide compiles it. Undoing that escaping is what
+    makes this the same code the browser runs rather than a copy of it.
+    """
+    source = Path("web/src/worker.js").read_text(encoding="utf-8")
+    start = source.index("const PY_SETUP = `") + len("const PY_SETUP = `")
+    end = source.index("`;", start)
+    setup = source[start:end].replace("\\\\", "\\")
+    namespace: dict = {}
+    exec(compile(setup, "worker.js:PY_SETUP", "exec"), namespace)
+    return namespace
+
+
+def test_the_worker_design_path_returns_what_the_library_returns():
+    """A browser-only writer must not get a reduced result."""
+    import json as json_mod
+    from praxis.contract import build
+    from praxis.design import design as run_design
+
+    ns = _worker_namespace()
+    draft = "Hi Priya,\n\nWe think we should probably move to the new pipeline.\n"
+    stated = {"stakes": "high", "intent": "request", "time_available": "low"}
+
+    from_worker = json_mod.loads(
+        ns["design_json"](draft, json_mod.dumps(stated), "auto", "", "")
+    )
+    direct = run_design(draft, build(stated), mode="auto")
+
+    ui = from_worker.pop("ui")
+    assert from_worker == json_mod.loads(json_mod.dumps(direct)), \
+        "the worker's design result diverges from design()"
+    # The renderings the UI needs are additive, never a substitute.
+    assert ui["answer"] and ui["progress"] and ui["html"]
+
+
+def test_the_worker_reports_a_writers_mistake_as_a_sentence():
+    """Transform with no draft is a mistake to explain, not a traceback."""
+    import json as json_mod
+    ns = _worker_namespace()
+
+    rejected = json_mod.loads(ns["design_json"]("", "{}", "transform", "", ""))
+    assert "draft" in rejected["error"]
+
+    bad_field = json_mod.loads(
+        ns["design_json"]("A note.", json_mod.dumps({"stakes": "galactic"}), "auto", "", "")
+    )
+    assert "error" in bad_field and "stakes" in bad_field["error"]
+
+
+def test_the_worker_offers_the_closed_domains_to_the_ui():
+    """A writer should pick from the domain, never guess the vocabulary."""
+    from praxis.contract import FIELDS
+
+    ns = _worker_namespace()
+    catalogue = {f["name"]: f for f in ns["field_catalogue"]()}
+    assert set(catalogue) == {f.name for f in FIELDS}
+    assert catalogue["stakes"]["options"], "a closed domain reached the UI empty"
+    assert catalogue["stakes"]["question"] and catalogue["stakes"]["kind"] == "text"
+    assert catalogue["genre"]["options"] == [], "a free-text field claimed a domain"
