@@ -90,16 +90,46 @@ CONSEQUENTIAL = re.compile(
     r"|missed?\s+(?:commitment|deadline|target)|revenue|churn|liabilit\w+)", FLAGS)
 
 #: A route for the reader when the normal path fails.
+#:
+#: `if this is not …` was once an alternative on its own, which matched
+#: "Let me know if this is not clear." — so a courtesy sentence satisfied
+#: the escalation requirement of a safety-critical message. The
+#: conditional forms now have to name the failure they are a route out of.
 ESCALATION = re.compile(
-    r"\b(?:escalat\w+|on[- ]?call|page (?:me|the|us)|if (?:this|it|you) (?:is |are )?not"
-    r"|if (?:this|that) (?:does not|doesn't) |otherwise contact|fall ?back"
-    r"|failing that|in the meantime, contact)\b", FLAGS)
+    r"\b(?:escalat\w+|on[- ]?call|page (?:me|the|us)\b|otherwise contact"
+    r"|fall ?back to|failing that|in the meantime,? contact"
+    r"|if (?:it|this|that) (?:is )?(?:still )?(?:un|not )?resolved"
+    r"|if (?:you|we) (?:cannot|can't|are unable to) reach)\b", FLAGS)
 
-#: A commitment to say more, and when.
+#: A commitment to say more, *and when*.
+#:
+#: The time is the requirement — `strategy.REQUIREMENTS` asks a crisis
+#: message for "a named next update time" — so every alternative has to
+#: carry a real temporal anchor.
+#:
+#: Two rounds of getting this wrong are worth recording. It first matched
+#: "I will update the runbook.", which names neither an update to the
+#: reader nor a time. The fix admitted bare prepositions as anchors, which
+#: made "I will update you by email", "at length", "within the document",
+#: "by then" and "every so often" all count as a named update time. A
+#: preposition is not a time; it now has to be followed by one.
+_CLOCK = (r"\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)|\b\d{1,2}:\d{2}\b"
+          r"|\b\d{4}-\d{2}-\d{2}\b|\bnoon\b|\bmidnight\b")
+#: Day names need their boundaries: without them `mon` sits inside
+#: "monitor" and `sat` inside "saturate".
+_DAY = r"\b(?:mon|tues?|wed(?:nes)?|thurs?|fri|sat(?:ur)?|sun)(?:day)?\b"
+_RELATIVE = (r"\b(?:today|tomorrow|tonight|EOD|COB|end of (?:the )?(?:day|week)"
+             r"|next week|this (?:morning|afternoon|evening)|the hour"
+             r"|\d+\s*(?:minutes?|hours?|days?))\b")
+_CADENCE = r"\b(?:hourly|daily|twice daily|every\s+(?:\d+\s*)?(?:minute|hour|day)s?)\b"
+_WHEN = f"(?:{_CLOCK}|{_DAY}|{_RELATIVE}|{_CADENCE})"
+
 UPDATE_CADENCE = re.compile(
-    r"\b(?:next update|further update|(?:I|we)(?:'ll| will) (?:update|follow up|report back|write again)"
-    r"|updates? (?:at|by|every|to follow)|another update|more (?:detail|information) (?:at|by|on)"
-    r"|update (?:you|again))\b", FLAGS)
+    r"\b(?:next update\b[^.\n]{0,40}?" + _WHEN
+    + r"|(?:I|we)(?:'ll| will) (?:update|report back|follow up|write again)\b"
+      r"[^.\n]{0,60}?" + _WHEN
+    + r"|(?:another|further) update\b[^.\n]{0,40}?" + _WHEN
+    + r"|updates?\s+" + _CADENCE + r")", FLAGS)
 
 #: Structural affordances that let a reader scan instead of read.
 SCAN = re.compile(r"^\s{0,3}(?:[-*+]\s|\d+[.)]\s|#{1,6}\s)|\*\*[^*]+\*\*", re.MULTILINE)

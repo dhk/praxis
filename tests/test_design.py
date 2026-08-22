@@ -267,9 +267,18 @@ def test_raised_stakes_check_what_the_requirements_promise(stakes, required, tex
 
 
 def test_raised_stakes_pass_once_the_controls_are_there():
-    ok = _dimension("I will own this. Please confirm receipt. I will update you at 5 p.m.",
+    """Crisis inherits safety_critical's escalation path — the tiers are
+    cumulative. This test previously asserted the opposite, because it was
+    written against a hand-maintained table that had drifted."""
+    ok = _dimension("I will own this. Please confirm receipt. I will update you at 5 p.m. "
+                    "If this is not resolved, page the on-call.",
                     {"stakes": "crisis"}, "risk_calibration")
     assert ok["status"] == PASS
+    without_escalation = _dimension(
+        "I will own this. Please confirm receipt. I will update you at 5 p.m.",
+        {"stakes": "crisis"}, "risk_calibration")
+    assert without_escalation["status"] == GAP
+    assert "escalation" in without_escalation["finding"]
 
 
 def test_a_dimension_only_claims_to_check_what_it_checks():
@@ -321,6 +330,71 @@ def test_the_headline_reports_the_true_outstanding_count():
 def test_the_unresolved_helper_is_not_the_capped_list():
     result = design(DRAFT, build())
     assert brief.unresolved_count(result) == result["questions_outstanding"]
+
+
+def test_a_courtesy_phrase_is_not_an_escalation_path():
+    """"Let me know if this is not clear" satisfied the escalation
+    requirement of a safety-critical message."""
+    assert signals.find("escalation", "Let me know if this is not clear.") == []
+    assert signals.find("escalation", "Thanks — let me know if you have questions.") == []
+    assert signals.find("escalation", "If this is not resolved by 5, page the on-call.")
+
+
+@pytest.mark.parametrize("text", [
+    "I will update you at 5 p.m.", "Next update by 6 p.m.", "Next update: 6 p.m.",
+    "We will report back by Thursday.", "Updates every hour.", "Updates hourly.",
+    "I will update you tomorrow.", "I will update you on Monday.",
+    "I will update you by EOD.", "I will update you within the hour.",
+    "I will follow up in 30 minutes.", "Another update at noon.",
+])
+def test_a_named_update_time_is_recognised(text):
+    assert signals.find("update_cadence", text), text
+
+
+@pytest.mark.parametrize("text", [
+    # No update to the reader, and no time.
+    "I will update the runbook.", "I will update the ticket description.",
+    # A preposition is not a time. Admitting bare prepositions as anchors
+    # was the fix for the line above, and it made all of these count as a
+    # named next update time.
+    "I will update you by email.", "I will update you at length.",
+    "I will update you within the document.", "I will update you by then.",
+    "I will update you at some point.", "I will update you every so often.",
+    # Day names need their boundaries: `mon` sits inside "monitor",
+    # `sat` inside "saturation".
+    "I will update you on the monitor.", "We will update the saturation curve.",
+    "I will update you with a summary.",
+])
+def test_a_vague_promise_is_not_a_named_update_time(text):
+    assert signals.find("update_cadence", text) == [], text
+
+
+def test_the_stakes_tiers_stay_cumulative():
+    """A hand-written per-tier table drifted from `requirements()` within
+    one commit, checking crisis less strictly than safety_critical."""
+    text = "I will own this. Please confirm receipt."
+    safety = _dimension(text, {"stakes": "safety_critical"}, "risk_calibration")
+    crisis = _dimension(text, {"stakes": "crisis"}, "risk_calibration")
+    assert "escalation" in safety["finding"]
+    assert "escalation" in crisis["finding"], "crisis must inherit the tier below it"
+
+
+def test_actionability_does_not_pass_without_an_action():
+    """It answered `pass` while its own finding said "Not detected: ask,
+    deadline" — for a dimension that asks about the next action."""
+    for intent in ("inform", "explain", "request"):
+        finding = _dimension("I will handle it. Acknowledge when done.",
+                             {"intent": intent}, "actionability")
+        assert finding["status"] != PASS, intent
+
+
+def test_the_page_says_when_it_is_showing_only_some_questions():
+    """The headline reported seven and the page listed three, silently."""
+    result = design(DRAFT, build())
+    assert result["questions_outstanding"] > len(result["questions"])
+    html = document(result)
+    hidden = result["questions_outstanding"] - len(result["questions"])
+    assert f"{hidden} further question" in html
 
 
 def _dimension(text: str, values: dict, name: str) -> dict:

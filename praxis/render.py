@@ -196,6 +196,13 @@ def _questions(result: dict) -> str:
 {_chip(q['status'], 'inferred' if q['status'] == 'inferred' else '')}</div>
 <p class="q">field <code>{escape(q['field'])}</code> — {escape(q['why_it_matters'])}</p>
 <ul class="tight small">{splits}</ul></div>""")
+    hidden = result.get("questions_outstanding", len(questions)) - len(questions)
+    if rows and hidden > 0:
+        # The headline reports the true total; without this the page listed
+        # three and gave no sign the other four existed.
+        rows.append(f'<div class="row"><p class="small muted">{hidden} further question'
+                    f'{"s" if hidden > 1 else ""} would also change the answer, shown once '
+                    'these are settled.</p></div>')
     body = f'<div class="panel">{"".join(rows)}</div>' if rows else ""
     if skipped:
         body += ('<div class="panel"><h3>Would not change the strategy</h3><p class="small muted">'

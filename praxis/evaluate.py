@@ -237,11 +237,15 @@ def _risk_calibration(found, stakes) -> Finding:
     # with no named next update, and a safety-critical one with no
     # escalation path, both passed — while `requirements()` told the
     # writer those were mandatory.
-    required = {
-        "high": ("owner", "verification"),
-        "safety_critical": ("owner", "verification", "escalation"),
-        "crisis": ("owner", "verification", "update_cadence"),
-    }[stakes]
+    # Built cumulatively, because `strategy.REQUIREMENTS` is cumulative and
+    # a hand-written table drifted from it immediately: crisis listed
+    # update_cadence but dropped the escalation path, so the most severe
+    # tier was checked less strictly than the one below it.
+    required = ("owner", "verification")
+    if stakes in ("safety_critical", "crisis"):
+        required += ("escalation",)
+    if stakes == "crisis":
+        required += ("update_cadence",)
     missing = [n for n in required if not found[n]]
     if missing:
         return _f("risk_calibration", q, GAP,
@@ -321,7 +325,11 @@ def _actionability(found, intent) -> Finding:
                   [found[n][0] for n in present if found[n]][:3],
                   "An action without a deadline is a suggestion; add both.",
                   f"no {_list(missing)}")
-    if len(present) >= 2:
+    # An owner and a confirmation, with no ask and no deadline anywhere,
+    # is not an actionable message — and this dimension asks about the
+    # action. Counting any two present signals let it answer `pass` while
+    # its own finding read "Not detected: ask, deadline".
+    if found["ask"] or found["deadline"]:
         note = f"Present: {', '.join(present)}."
         if missing:
             note += (f" Not detected: {', '.join(missing)}"

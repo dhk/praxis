@@ -13,6 +13,7 @@ account, and nothing listens beyond the loopback interface.
 
 from __future__ import annotations
 
+import ipaddress
 from html import escape
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -73,16 +74,29 @@ class Handler(BaseHTTPRequestHandler):
         """Quiet by default: this runs beside a conversation, not in a log."""
 
 
-#: The viewer serves saved drafts and contracts with no authentication of
-#: any kind, on the stated understanding that it is reachable only from
-#: this machine. `--host 0.0.0.0` quietly turned that into a public
-#: read endpoint for everything the workspace holds, so the host override
-#: is now bounded rather than trusted.
-LOOPBACK = frozenset({"127.0.0.1", "::1", "localhost", ""})
+def _is_loopback(host: str) -> bool:
+    """Is this address reachable only from this machine?
+
+    Decided by parsing the address, not by matching a list of spellings.
+    An earlier allowlist held the literal `""` — and `bind(("", port))`
+    binds every interface, so `--host ""` walked straight through a guard
+    written specifically to stop that. Anything that is not a parseable
+    loopback address is refused, which covers `""`, `0.0.0.0` and `::`
+    without needing to have thought of them.
+    """
+    if host == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
 
 
 def serve(host: str = "127.0.0.1", port: int = 8765) -> None:
-    if host not in LOOPBACK:
+    # The viewer serves saved drafts and contracts with no authentication
+    # of any kind, on the stated understanding that it is reachable only
+    # from this machine.
+    if not _is_loopback(host):
         raise SystemExit(
             f"praxis serve binds loopback only; refused {host!r}.\n"
             "Saved drafts and contracts are served without authentication. "

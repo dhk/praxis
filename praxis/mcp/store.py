@@ -108,7 +108,14 @@ def load(session_id: str) -> dict:
     if not path.exists():
         raise FileNotFoundError(
             f"no session {session_id!r}. Known: {', '.join(s['id'] for s in listing()) or 'none'}")
-    return json.loads(path.read_text(encoding="utf-8"))
+    raw = path.read_text(encoding="utf-8")
+    if not raw.strip():
+        # An id reserved by `new_id` that was never written. Callers get a
+        # sentence they can act on rather than a JSONDecodeError from three
+        # frames down.
+        raise FileNotFoundError(
+            f"session {session_id!r} was reserved but never saved; start it again")
+    return json.loads(raw)
 
 
 def listing() -> list[dict]:

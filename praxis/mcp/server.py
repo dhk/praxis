@@ -57,7 +57,7 @@ from __future__ import annotations
 from typing import Any
 
 from praxis import brief, render
-from praxis.contract import ContractError, schema
+from praxis.contract import ContractError, build, schema
 from praxis.shading import MAX_ALTERNATIVES, SHADES
 from praxis.strategy import STRUCTURES
 from praxis.mcp import store
@@ -178,6 +178,17 @@ def design_open(text: str = "", title: str = "", stated: dict | None = None,
     Relay the `answer` and `progress`. Offer `next_question` once. Do not
     ask anything beyond it.
     """
+    # Validate before allocating. `store.blank` reserves the id by
+    # creating the file, so returning an error after it ran left a
+    # zero-byte session — and the reply handed the client that id and told
+    # it to call design_update, which then died on the unparseable file.
+    try:
+        build(stated or {}, inferred or {})
+    except ContractError as exc:
+        return {"error": str(exc),
+                "next_step": "Call design_schema for the allowed values, then design_open "
+                             "again. No session was created.",
+                "hint": "call design_schema for the allowed values"}
     record = store.blank(title or _title_from(text), text)
     return _update(record, stated, inferred, None)
 
@@ -209,7 +220,6 @@ def design_update(session_id: str, stated: dict | None = None,
 
 
 def _update(record: dict, stated: dict | None, inferred: dict | None, draft: str | None) -> dict:
-    from praxis.contract import build  # validates domains; raises ContractError
     if draft is not None:
         record["draft"] = draft
     record["values"] = {**record.get("values", {}), **(stated or {})}
@@ -277,7 +287,11 @@ def design_shade(session_id: str, variants: list[dict]) -> dict:
     A `fail` status means the version changed something it was not
     allowed to change. Rewrite it rather than explaining it away.
     """
-    alternatives = sum(1 for v in variants if not v.get("recommended"))
+    # Exactly one submission is the recommendation — the one marked, or
+    # the first (see design._recommended_index) — so everything else is an
+    # alternative. Counting unmarked entries instead rejected the three
+    # unmarked versions this tool's own docstring says are supported.
+    alternatives = max(0, len(variants) - 1)
     if len(variants) > 1 and alternatives > MAX_ALTERNATIVES:
         # The bound is the product, not a default. Auditing a dozen
         # versions would put them all in the reply and the rendered page,
