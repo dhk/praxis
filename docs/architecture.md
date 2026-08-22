@@ -7,7 +7,7 @@ The two layers answer different questions and share nothing but the engine's dis
 | Layer | Entry point | Question |
 |---|---|---|
 | Transformation harness (RFC-0001) | `pipeline.run_pipeline(text, pack_id)` | Which mechanical defects can be fixed with evidence, and did protected content survive? |
-| Communication design (RFC-0003) | `design.design(draft, contract, variants)` | What should this message do for this reader at this level of risk, and does the draft do it? |
+| Communication design (RFC-0003, RFC-0004) | `design.design(draft, contract, variants, mode)` | What should this message do for this reader at this level of risk, does the draft do it, and — in `transform` mode — what should change, where? |
 
 Neither layer generates prose, and neither reaches a model or the network. The design layer's prose comes from the client's own model over MCP; praxis supplies the strategy and the audit.
 
@@ -79,8 +79,11 @@ flowchart LR
 | `praxis/shading.py` | Decides whether variants are warranted, extracts invariants, checks a variant, and builds its difference map. | Reads contracts, never strategies. |
 | `praxis/evaluate.py` | Ten fit dimensions, each with evidence and an honest `unknown`. | Reports; it never rewrites and emits no score. |
 | `praxis/signals.py` | Conservative text detectors shared by evaluation and shading. | Recall-oriented: a miss is `unknown`, never `absent`. |
+| `praxis/spans.py` | Where things are: detector matches, sentences, paragraphs, protected phrases, the body start. | Positional only. Protected phrases match across line wrapping. |
+| `praxis/transform.py` | Turns each gap into a located edit, and checks it against protected content first. | Emits instructions, never prose. Every gap is addressed, folded, or named. |
+| `praxis/voice.py` | Which of the writer's countable habits a rewrite kept. | Habits, not authorship; never returns a `gap`. |
 | `praxis/design.py` | Orchestrates one design session and returns its result. | The single boundary all three interfaces consume. |
-| `praxis/brief.py` | Renders a design result as text at four depths, shallowest first. | Presentation only; it decides how much to say, never what is true. |
+| `praxis/brief.py` | Renders a design result as text at five depths, shallowest first. | Presentation only; it decides how much to say, never what is true. |
 | `praxis/render.py` | Renders a design result as a self-contained HTML page. | Pure string building; it can only show what the engine computed. |
 | `praxis/mcp/server.py` | The MCP tool surface and the loop it walks a client through. | The only place a client model receives instructions. |
 | `praxis/mcp/store.py` | Session persistence: contract, draft, variants. | Stores nothing derived, so no verdict can go stale. |

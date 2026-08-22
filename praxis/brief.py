@@ -3,7 +3,7 @@
 Praxis spends its whole argument on leading with the answer, asking only
 what changes it, and letting the reader drill in — and then, for two
 commits, answered every tool call with a page of JSON. This module is the
-correction. It renders a design result at four depths, and the default is
+correction. It renders a design result at five depths, and the default is
 the shallowest one that is still true.
 
 The depths:
@@ -16,6 +16,7 @@ The depths:
   unknowns.
 * ``contract`` — the situation as praxis currently understands it,
   marked for what was stated and what was guessed.
+* ``edits`` — in a transform run, every located change with its place.
 
 `progress` is the piece that makes stopping a choice rather than a
 guess. It reports how many questions would still *change* the answer —
@@ -26,13 +27,16 @@ tell you when you are finished.
 
 from .contract import BY_NAME, SELECTORS
 
-DEPTHS = ("answer", "why", "findings", "contract")
+DEPTHS = ("answer", "why", "findings", "contract", "edits")
 
 
 def answer(result: dict) -> str:
     """The shape, and what is wrong. Nothing else."""
     strategy = result["strategy"]
     shape = strategy["title"].lower()
+
+    if "transform" in result:
+        return _transform_answer(result, shape)
 
     if not result.get("draft_present"):
         steps = ", then ".join(strategy["sequence"])
@@ -46,6 +50,54 @@ def answer(result: dict) -> str:
     rest = f" Plus {len(gaps) - 3} more." if len(gaps) > 3 else ""
     thing = "one thing" if len(gaps) == 1 else f"{len(gaps)} things"
     return f"Fix {thing} before sending: {shown}.{rest} Shape it {shape}."
+
+
+def _transform_answer(result: dict, shape: str) -> str:
+    """What to change, counted by kind, so the writer sees the shape of
+    the work before the list of it."""
+    changes = result["transform"]
+    edits = changes["edits"]
+    if not edits:
+        stuck = changes["no_edit_for"]
+        if stuck:
+            # "Nothing to change" would contradict the page, which lists
+            # these as real gaps praxis could not point at.
+            return (f"{len(stuck)} gap(s) praxis could not locate a change for: "
+                    f"{', '.join(stuck)}. A human decides where these go. "
+                    f"Shape it {shape}.")
+        return f"Nothing to change against this contract. The shape holds ({shape})."
+    by_kind: dict[str, int] = {}
+    for edit in edits:
+        by_kind[edit["kind"]] = by_kind.get(edit["kind"], 0) + 1
+    counted = ", ".join(f"{n} to {kind}" for kind, n in sorted(by_kind.items()))
+    blocked = result["transform"]["blocked"]
+    warning = (f" {blocked} of them touch protected content and need your call."
+               if blocked else "")
+    return f"{len(edits)} located change(s): {counted}. Shape it {shape}.{warning}"
+
+
+def edits(result: dict) -> str:
+    """Every located change, as a line a person can act on."""
+    if "transform" not in result:
+        return "Not a transform run; call design_transform for located changes."
+    rows = []
+    for edit in result["transform"]["edits"]:
+        place = (f"insert at {edit['at']}" if edit["at"] is not None
+                 else f"{edit['where']['start']}-{edit['where']['end']}")
+        row = f"[{edit['kind']}] {place} ({edit['dimension']}): {edit['instruction']}"
+        if edit["where"]:
+            row += f"\n    on: {edit['where']['text'][:100]!r}"
+        if edit["blocked_by"]:
+            row += "\n    BLOCKED: overlaps protected content — your call, not praxis's."
+        rows.append(row)
+    folded = result["transform"]["folded_into"]
+    if folded:
+        rows.append("Folded into another edit: "
+                    + ", ".join(f"{k} → {v}" for k, v in folded.items()))
+    if result["transform"]["no_edit_for"]:
+        rows.append("No edit could be located for: "
+                    + ", ".join(result["transform"]["no_edit_for"]))
+    return "\n".join(rows)
 
 
 def progress(result: dict) -> str:
@@ -188,7 +240,8 @@ def _join(items: list[str]) -> str:
     return f"{', '.join(items[:-1])} and {items[-1]}"
 
 
-RENDERERS = {"answer": answer, "why": why, "findings": findings, "contract": contract}
+RENDERERS = {"answer": answer, "why": why, "findings": findings,
+             "contract": contract, "edits": edits}
 
 
 def at_depth(result: dict, depth: str) -> str:
@@ -212,5 +265,5 @@ def settled_count(result: dict) -> int:
     return len(result.get("do_not_ask", []))
 
 
-__all__ = ["DEPTHS", "answer", "progress", "why", "findings", "contract",
+__all__ = ["DEPTHS", "answer", "progress", "why", "findings", "contract", "edits",
            "next_question", "at_depth", "unresolved_count", "settled_count"]

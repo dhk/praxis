@@ -135,10 +135,11 @@ def listing() -> list[dict]:
 
 def blank(title: str, draft: str = "") -> dict:
     return {"id": new_id(title), "title": title, "draft": draft,
-            "values": {}, "inferred": {}, "variants": [], "created": _now()}
+            "values": {}, "inferred": {}, "variants": [], "voice_reference": "",
+            "created": _now()}
 
 
-def result_for(record: dict) -> dict:
+def result_for(record: dict, mode: str = "auto") -> dict:
     """Run the design layer over a stored session.
 
     Nothing derived is persisted — the strategy, the questions, and the
@@ -147,4 +148,5 @@ def result_for(record: dict) -> dict:
     no way to tell which sessions were carrying an old answer.
     """
     contract = build(record.get("values") or {}, record.get("inferred") or {})
-    return design(record.get("draft", ""), contract, record.get("variants") or [])
+    return design(record.get("draft", ""), contract, record.get("variants") or [],
+                  mode=mode, voice_reference=record.get("voice_reference", ""))

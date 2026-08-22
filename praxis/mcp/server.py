@@ -265,6 +265,56 @@ def design_detail(session_id: str, depth: str = "why") -> dict:
 
 
 @mcp.tool()
+def design_transform(session_id: str, voice_reference: str = "") -> dict:
+    """Get located, surgical changes for the draft — not a rewrite of it.
+
+    Each change carries a kind (insert, revise, move, cut), a character
+    offset or span in the draft, and an instruction describing what the
+    new text must accomplish. praxis does not write that text; you do,
+    and only at the places named.
+
+    Anything the writer declared protected is located too, and a change
+    that would overwrite it comes back marked `blocked` rather than
+    silently dropped — their constraint and the advice are in tension and
+    that is theirs to resolve, not yours.
+
+    `voice_reference` is a longer sample of the writer's own prose. Given
+    one, the voice dimension reports which of their habits the draft
+    keeps. Without one it reports `unknown`, which is honest rather than
+    unhelpful.
+    """
+    record = store.load(session_id)
+    if not record.get("draft", "").strip():
+        return {"session": record["id"],
+                "error": "there is no draft in this session to transform",
+                "next_step": "Call design_update with the draft first."}
+    record["voice_reference"] = voice_reference or record.get("voice_reference", "")
+    store.save(record)
+    result = store.result_for(record, mode="transform")
+    changes = result["transform"]
+    voice = next(d for d in result["evaluation"]["dimensions"]
+                 if d["dimension"] == "voice_integrity")
+    return {
+        "session": record["id"],
+        "answer": brief.answer(result),
+        "progress": brief.progress(result),
+        # Advertised in this tool's own description, so it is returned
+        # here rather than behind a second call the client has no reason
+        # to know it needs to make.
+        "voice": {"status": voice["status"], "finding": voice["finding"],
+                  "habits_changed": voice["evidence"]},
+        "changes": changes["edits"],
+        "protected": changes["protected"],
+        "unlocatable_protected": changes["unlocatable"],
+        "folded_into": changes["folded_into"],
+        "no_edit_for": changes["no_edit_for"],
+        "next_step": ("Make only these changes, at these places, and leave everything "
+                      "else alone. Then send the result back with design_update and "
+                      "call design_transform again to confirm the gaps closed."),
+    }
+
+
+@mcp.tool()
 def design_shade(session_id: str, variants: list[dict]) -> dict:
     """Submit versions you have written and have each one audited.
 
@@ -313,15 +363,26 @@ def design_shade(session_id: str, variants: list[dict]) -> dict:
 
 
 @mcp.tool()
-def design_render(session_id: str, include_html: bool = True) -> dict:
+def design_render(session_id: str, include_html: bool = True,
+                  mode: str = "auto") -> dict:
     """Render the session as a self-contained HTML page and save it.
 
     Publish the returned HTML as an artifact. The contract, the scorecard,
     and the variants with their difference maps are a comparison; they do
     not survive being narrated in chat.
+
+    Pass `mode="transform"` after calling design_transform, or the page
+    will not carry the located changes. The requested mode is not stored:
+    it is a question the caller asked, not a fact about the session, and
+    persisting it would make a rendered page depend on what somebody
+    asked for an hour ago.
     """
     record = store.load(session_id)
-    result = store.result_for(record)
+    if mode == "transform" and not record.get("draft", "").strip():
+        return {"session": record["id"],
+                "error": "there is no draft in this session to transform",
+                "next_step": "Call design_update with the draft first."}
+    result = store.result_for(record, mode=mode)
     html = render.document(result)
     path = store.home() / "pages" / f"{record['id']}.html"
     path.parent.mkdir(parents=True, exist_ok=True)

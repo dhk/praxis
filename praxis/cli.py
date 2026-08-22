@@ -30,7 +30,8 @@ def run(input_path: Path, out_dir: Path, pack_id: str = DEFAULT_PACK_ID, prompt:
     print(f"Validation: {result['validation']['status']}")
     print(f"Words: {result['metrics']['before']['words']} -> {result['metrics']['after']['words']}")
 
-def design(input_path: Path | None, out: Path, values: list[str], show_why: bool = False) -> None:
+def design(input_path: Path | None, out: Path, values: list[str], show_why: bool = False,
+           as_transform: bool = False, voice_path: Path | None = None) -> None:
     """Analyse a communication situation and write the artifact page.
 
     Answer-first, like the MCP surface: the shape and what is wrong,
@@ -55,7 +56,11 @@ def design(input_path: Path | None, out: Path, values: list[str], show_why: bool
         raise SystemExit(str(exc)) from exc
 
     draft = input_path.read_text(encoding="utf-8") if input_path else ""
-    result = run_design(draft, contract)
+    if as_transform and not draft.strip():
+        raise SystemExit("--transform needs a draft to locate changes in")
+    reference = voice_path.read_text(encoding="utf-8") if voice_path else ""
+    result = run_design(draft, contract, mode="transform" if as_transform else "auto",
+                        voice_reference=reference)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(document(result), encoding="utf-8")
 
@@ -65,6 +70,8 @@ def design(input_path: Path | None, out: Path, values: list[str], show_why: bool
     if question:
         print(f"\n? {question['ask']}  ({'/'.join(question['options'])})")
         print(f"  --set {question['field']}=…  ({question['changes']})")
+    if as_transform:
+        print(f"\n{brief.edits(result)}")
     if show_why:
         print(f"\n{brief.why(result)}")
     print(f"\nWrote {out}")
@@ -88,6 +95,12 @@ def main() -> None:
                           help="a contract field, repeatable (e.g. --set stakes=high)")
     design_p.add_argument("--why", action="store_true",
                           help="also print the reasoning behind the recommendation")
+    design_p.add_argument("--transform", action="store_true",
+                          help="locate surgical changes in the draft instead of "
+                               "evaluating it")
+    design_p.add_argument("--voice", type=Path, metavar="PATH",
+                          help="a sample of your own writing, to check which habits "
+                               "the draft keeps")
 
     serve_p = sub.add_parser("serve", help="browse saved design sessions locally")
     serve_p.add_argument("--host", default="127.0.0.1")
@@ -99,7 +112,7 @@ def main() -> None:
     if args.cmd == "run":
         run(args.input, args.out, args.pack, args.prompt)
     elif args.cmd == "design":
-        design(args.input, args.out, args.values, args.why)
+        design(args.input, args.out, args.values, args.why, args.transform, args.voice)
     elif args.cmd == "serve":
         from .mcp.serve import serve as serve_viewer
         serve_viewer(args.host, args.port)

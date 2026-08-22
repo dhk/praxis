@@ -20,7 +20,7 @@ evidence attached invites them to fix the message.
 """
 
 from dataclasses import dataclass, asdict
-from . import signals
+from . import signals, voice
 from .contract import Contract
 from .metrics import metrics
 from .rules import split_sentences
@@ -71,8 +71,14 @@ def _f(dimension, question, status, finding, evidence=(), recommendation="", sho
     return Finding(dimension, question, status, finding, list(evidence), recommendation, short)
 
 
-def evaluate(text: str, contract: Contract, structure: str | None = None) -> dict:
-    """Score `text` against `contract` on ten dimensions, with evidence."""
+def evaluate(text: str, contract: Contract, structure: str | None = None,
+             voice_reference: str = "") -> dict:
+    """Score `text` against `contract` on ten dimensions, with evidence.
+
+    `voice_reference` is the writer's own earlier text. Given one, the
+    voice dimension stops reporting `unknown` and reports which of their
+    habits the current version kept.
+    """
     m = metrics(text)
     found = {name: signals.find(name, text) for name in signals.DETECTORS}
     intent = contract.get("intent")
@@ -88,7 +94,7 @@ def evaluate(text: str, contract: Contract, structure: str | None = None) -> dic
         _risk_calibration(found, stakes),
         _relationship_fit(found, contract),
         _medium_fit(m, contract),
-        _voice_integrity(),
+        _voice_integrity(text, voice_reference),
         _actionability(found, intent),
     ]
 
@@ -173,18 +179,30 @@ def _structural_fit(text, found, structure) -> Finding:
               f"Order for {structure} is not machine-checkable from the opening alone.")
 
 
-def _evidence_fit(text, stakes) -> Finding:
-    q = "Are consequential claims supported at the required standard?"
+def claims(text: str) -> tuple[list[str], list[str]]:
+    """Consequential sentences, and the ones with no support in reach.
+
+    Public because `transform` needs the same answer to say *which*
+    sentence to attach a figure to, and two implementations of "is this
+    claim supported" would disagree the first time either changed.
+    """
     sentences = [s for _, _, s in split_sentences(text)] or [text]
-    unsupported = []
+    consequential, unsupported = [], []
     for i, sentence in enumerate(sentences):
         if not signals.find("consequential", sentence):
             continue
+        consequential.append(sentence)
         window = sentence + " " + (sentences[i + 1] if i + 1 < len(sentences) else "")
         if not signals.find("evidence", window):
-            unsupported.append(sentence.strip()[:140])
-    claims = [s for s in sentences if signals.find("consequential", s)]
-    if not claims:
+            unsupported.append(sentence.strip())
+    return consequential, unsupported
+
+
+def _evidence_fit(text, stakes) -> Finding:
+    q = "Are consequential claims supported at the required standard?"
+    consequential, unsupported_full = claims(text)
+    unsupported = [s[:140] for s in unsupported_full]
+    if not consequential:
         # No claim was recognised, which is not the same as there being
         # none. Reporting `pass` here told a high-stakes draft its claims
         # were all supported on the strength of a detector finding nothing.
@@ -194,7 +212,7 @@ def _evidence_fit(text, stakes) -> Finding:
                   [], "Check by eye that any claim the reader will act on carries its support.")
     if not unsupported:
         return _f("evidence_fit", q, PASS,
-                  f"All {len(claims)} consequential claim(s) sit near visible support.")
+                  f"All {len(consequential)} consequential claim(s) sit near visible support.")
     if stakes in ("high", "safety_critical", "crisis"):
         return _f("evidence_fit", q, GAP,
                   f"{len(unsupported)} consequential claim(s) carry no figure, source, or reference.",
@@ -303,11 +321,24 @@ def _medium_fit(m, contract) -> Finding:
     return _f("medium_fit", q, PASS, f"{m['words']} words suits {medium}.", [f"{m['words']} words"])
 
 
-def _voice_integrity() -> Finding:
-    return _f("voice_integrity", "Does the writing remain recognisably the author's?", UNKNOWN,
-              "Voice is checked by comparing a variant to the author's own draft; there is no "
-              "base text in an evaluate-only run.",
-              [], "Run this as a transform to get a voice comparison.")
+def _voice_integrity(text: str, reference: str) -> Finding:
+    q = "Does the writing keep the author's habits?"
+    if not reference.strip():
+        return _f("voice_integrity", q, UNKNOWN,
+                  "Voice is measured against the author's own earlier text, and this run "
+                  "has none to compare with.",
+                  [], "Run this as a transform, or pass a sample of the author's writing.")
+    result = voice.compare(reference, text)
+    if result["status"] == "unknown":
+        return _f("voice_integrity", q, UNKNOWN, result["finding"])
+    evidence = [f"{m['habit']}: {m['before']} → {m['after']} {m['unit']}"
+                for m in result["moved"]]
+    if result["status"] == "pass":
+        return _f("voice_integrity", q, PASS, result["finding"], result["held"][:4])
+    # Never a gap: a dropped habit may be exactly what the rewrite was for.
+    return _f("voice_integrity", q, PASS, result["finding"], evidence,
+              "Check each of these is a change you wanted.",
+              f"{len(result['moved'])} habit(s) changed")
 
 
 def _actionability(found, intent) -> Finding:
