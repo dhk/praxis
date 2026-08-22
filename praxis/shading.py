@@ -31,7 +31,7 @@ where the variant failed to be the shade it claims to be.
 
 from dataclasses import dataclass
 import difflib
-from . import signals
+from . import signals, spans
 from .contract import Contract
 from .metrics import metrics
 from .validation import protected_tokens
@@ -246,8 +246,11 @@ def check(source: str, variant: str, contract: Contract, shade: str | None = Non
     violations: list[dict] = []
 
     kept = protected_tokens(variant)
+    # Phrases are matched across whitespace: a rewrite that re-wraps the
+    # lines has not dropped the phrase, and reporting that it has is a
+    # false failure on the writer's own constraint.
     missing = sorted(set(inv["tokens"]) - kept
-                     | {p for p in inv["phrases"] if p not in variant})
+                     | {p for p in inv["phrases"] if not spans.contains_phrase(variant, p)})
     if missing:
         violations.append({
             "kind": "content_loss", "severity": "block",

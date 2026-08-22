@@ -11,13 +11,15 @@ Engineering rules, product invariants, and working method live in
 praxis is a deterministic, stdlib-only Python instrument for auditable written communication. It has two layers over one engine, and neither generates prose:
 
 - **The transformation harness** rewrites documents through an auditable pass pipeline (`Parse -> Observe -> Recommend -> Transform -> Validate -> Report`), plus a static web viewer for the resulting artifact trail. Every transformation must trace back to an observation; the CLI and the browser UI share one Python implementation — there is no second (e.g. TypeScript) port of the rules anywhere.
-- **The design layer** (RFC-0003) decides what a message should do for a given reader at a given level of risk, asks only the questions that change that decision, and audits prose written elsewhere against constraints declared in advance. Its interface is an MCP server; prose comes from the client's model, never from praxis.
+- **The design layer** (RFC-0003, RFC-0004) decides what a message should do for a given reader at a given level of risk, asks only the questions that change that decision, locates surgical changes in a draft, and audits prose written elsewhere against constraints declared in advance. Its interface is an MCP server; prose comes from the client's model, never from praxis.
 
 ## Commands
 
 ```bash
 # Design layer: analyse a communication situation, write an HTML artifact
 python -m praxis design draft.md --set stakes=high --set intent=request --set time_available=low
+python -m praxis design draft.md --transform --set intent=request   # located changes, not a critique
+python -m praxis design draft.md --transform --voice past-emails.md # which habits the draft keeps
 python -m praxis design --set intent=repair            # plan before writing; no draft needed
 python -m praxis serve                                  # browse saved sessions on 127.0.0.1:8765
 python -m praxis mcp                                    # MCP server on stdio (needs the `mcp` extra)
@@ -125,3 +127,23 @@ LLM by a human — the pipeline itself never calls one. Reachable via CLI
   `test_a_reply_is_the_answer_not_the_apparatus` fails otherwise. Offer
   one question, never a list, and report `questions_outstanding` (the
   true total) rather than the capped display list.
+- **Transform has to be asked for.** `mode="auto"` picks between compose
+  and evaluate; it never selects transform. "What is wrong" and "what to
+  change" are different questions, and answering the second unprompted is
+  the rewriting reflex the layer exists to avoid.
+- **Every gap produces an edit, folds into one, or is named.** A reported
+  gap with no located change is the failure transform mode exists to
+  avoid, so `folded_into` and `no_edit_for` are both in the result and
+  both are checked by test. `FOLDS_INTO` in `transform.py` is the data.
+- **A protected span blocks an edit rather than dropping it.** The
+  writer's constraint and praxis's advice can conflict; praxis reports
+  the conflict and refuses to choose.
+- **Protected phrases match across whitespace** (`spans.contains_phrase`).
+  A writer types a phrase with spaces and a hard-wrapped draft contains a
+  newline; exact matching missed it *silently*, so the writer believed
+  something was protected that was not.
+- **Voice reports habits, never authorship.** Function-word similarity
+  was built and measured out: same-author and different-author pairs
+  overlap at email lengths (the table is in RFC-0004). `voice.compare`
+  never returns a `gap` — a dropped habit may be exactly what the rewrite
+  was for.

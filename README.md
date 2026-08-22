@@ -112,7 +112,26 @@ Run the same draft at `--set stakes=low` and most of that disappears —
 the same words are fit or unfit depending on the situation, which is the
 layer's whole argument. See
 [`examples/decision_request/contract.md`](examples/decision_request/contract.md)
-for the contrast. Omit the draft entirely to plan before writing. The HTML file is a self-contained
+for the contrast. Omit the draft entirely to plan before writing.
+
+`--transform` answers a different question: not what is wrong, but what
+to change and *where*.
+
+```text
+6 located change(s): 3 to insert, 3 to revise. Shape it bottom line up front.
+
+[insert] at 11 (outcome_clarity): State the single action the reader must take,
+         in its own sentence at the top. Include the time by which it must happen.
+[revise] 418-426 (relationship_fit): Remove this hedge.
+    on: 'somewhat'
+Folded into another edit: structural_fit -> outcome_clarity, actionability -> outcome_clarity
+```
+
+Anything you declare protected is located too, and a change that would
+overwrite it comes back marked blocked rather than quietly dropped.
+`--voice past-emails.md` adds which of your habits the draft keeps —
+semicolons, sentence rhythm, first person — as counts, never as a verdict
+about who wrote it. The HTML file is a self-contained
 page — contract, strategy, scorecard, and any variants side by side with
 their difference maps — with no scripts and no network requests.
 
@@ -127,7 +146,8 @@ python -m praxis serve      # browse saved sessions at 127.0.0.1:8765
 ```
 
 The server exposes `design_open`, `design_update`, `design_detail`,
-`design_shade`, `design_render`, `design_list`, and `design_schema`.
+`design_transform`, `design_shade`, `design_render`, `design_list`, and
+`design_schema`.
 
 It is answer-first and conversational. Paste a draft and the first call
 answers immediately — there is no interview to get through:

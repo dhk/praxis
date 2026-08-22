@@ -265,6 +265,49 @@ def design_detail(session_id: str, depth: str = "why") -> dict:
 
 
 @mcp.tool()
+def design_transform(session_id: str, voice_reference: str = "") -> dict:
+    """Get located, surgical changes for the draft — not a rewrite of it.
+
+    Each change carries a kind (insert, revise, move, cut), a character
+    offset or span in the draft, and an instruction describing what the
+    new text must accomplish. praxis does not write that text; you do,
+    and only at the places named.
+
+    Anything the writer declared protected is located too, and a change
+    that would overwrite it comes back marked `blocked` rather than
+    silently dropped — their constraint and the advice are in tension and
+    that is theirs to resolve, not yours.
+
+    `voice_reference` is a longer sample of the writer's own prose. Given
+    one, the voice dimension reports which of their habits the draft
+    keeps. Without one it reports `unknown`, which is honest rather than
+    unhelpful.
+    """
+    record = store.load(session_id)
+    if not record.get("draft", "").strip():
+        return {"session": record["id"],
+                "error": "there is no draft in this session to transform",
+                "next_step": "Call design_update with the draft first."}
+    record["voice_reference"] = voice_reference or record.get("voice_reference", "")
+    store.save(record)
+    result = store.result_for(record, mode="transform")
+    changes = result["transform"]
+    return {
+        "session": record["id"],
+        "answer": brief.answer(result),
+        "progress": brief.progress(result),
+        "changes": changes["edits"],
+        "protected": changes["protected"],
+        "unlocatable_protected": changes["unlocatable"],
+        "folded_into": changes["folded_into"],
+        "no_edit_for": changes["no_edit_for"],
+        "next_step": ("Make only these changes, at these places, and leave everything "
+                      "else alone. Then send the result back with design_update and "
+                      "call design_transform again to confirm the gaps closed."),
+    }
+
+
+@mcp.tool()
 def design_shade(session_id: str, variants: list[dict]) -> dict:
     """Submit versions you have written and have each one audited.
 

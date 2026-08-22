@@ -14,16 +14,25 @@ writer wants one, to whichever model they are already talking to — which
 is why the whole layer costs nothing per run and stays inspectable.
 """
 
-from . import shading, strategy as strategy_mod
+from . import shading, strategy as strategy_mod, voice as voice_mod
 from .contract import Contract, build
 from .evaluate import evaluate
 from .metrics import metrics
+from .transform import transform as build_edits
 
-SCHEMA_VERSION = "design/0.1"
+SCHEMA_VERSION = "design/0.2"
+
+#: The three modes the layer offers. `auto` picks between compose and
+#: evaluate by whether a draft exists; transform has to be asked for,
+#: because "tell me what is wrong" and "tell me what to change" are
+#: different questions and answering the second unprompted is the
+#: rewriting habit this product exists to avoid.
+MODES = ("auto", "compose", "evaluate", "transform")
 
 
 def design(draft: str = "", contract: Contract | None = None,
-           variants: list[dict] | None = None) -> dict:
+           variants: list[dict] | None = None, mode: str = "auto",
+           voice_reference: str = "") -> dict:
     """Analyse a communication situation and, if given, the text for it.
 
     `draft` may be empty — a compose session has a situation before it has
@@ -37,8 +46,11 @@ def design(draft: str = "", contract: Contract | None = None,
     difference maps answer the question the writer is actually asking —
     how does this differ from the version I would otherwise send.
     """
+    if mode not in MODES:
+        raise ValueError(f"Unknown mode {mode!r}. Available: {', '.join(MODES)}")
     contract = contract or build()
     recommendation = strategy_mod.recommend(contract)
+    resolved = mode if mode != "auto" else ("evaluate" if draft.strip() else "compose")
     # Every material question, then the few worth showing. Reporting the
     # capped list as the total made the count sit at three however many
     # the writer answered — progress that never moves reads as no
@@ -53,13 +65,19 @@ def design(draft: str = "", contract: Contract | None = None,
         "do_not_ask": strategy_mod.settled_fields(contract),
         "shading": shading.candidates(contract),
         "draft_present": bool(draft.strip()),
+        "mode": resolved,
         "variants": [],
     }
 
     if draft.strip():
         result["metrics"] = metrics(draft)
         result["invariants"] = shading.invariants(draft, contract)
-        result["evaluation"] = evaluate(draft, contract, recommendation["structure"])
+        result["evaluation"] = evaluate(draft, contract, recommendation["structure"],
+                                        voice_reference)
+        if resolved == "transform":
+            result["transform"] = build_edits(draft, contract,
+                                              recommendation["structure"],
+                                              result["evaluation"])
 
     result["variants"] = _review(draft, contract, variants or [])
     result["headline"] = _headline(result)
@@ -135,6 +153,10 @@ def _review(draft: str, contract: Contract, variants: list[dict]) -> list[dict]:
                                            compare_to=rec_text,
                                            compare_label="the recommended version",
                                            source_label=source_label)
+        # Voice is always measured against the writer's own words, never
+        # against another rewrite: the question is whether this still
+        # sounds like them, not whether two rewrites resemble each other.
+        entry["voice"] = voice_mod.compare(source, text)
         reviewed.append(entry)
 
     reviewed.sort(key=lambda v: v["role"] != "recommended")

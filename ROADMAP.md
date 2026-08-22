@@ -9,7 +9,7 @@ wave that ends in scaffolding has not ended.
 |---|---|
 | 0 — Transformation harness | **Delivered** — pass model, artifact trail, three packs, validation, CLI, browser viewer |
 | 1 — Communication design, MCP-first | **In progress** — contract, strategy, materiality, evaluation, shading audit, HTML artifact, MCP server |
-| 2 — Transform mode and voice | Not started |
+| 2 — Transform mode and voice | **Delivered** (transform mode, located edits, protected spans, voice habits — RFC-0004); viewer work deferred |
 | 3 — Genre packs and reader models | Not started |
 | 4 — Evidence for the mechanic | Not started |
 | 5 — Persistence, sharing, governance | Not started |
@@ -108,16 +108,30 @@ product.
 ## Wave 2 — transform mode and voice
 
 **Usable outcome:** point praxis at a draft you already wrote and get
-surgical changes with a change report, not a replacement.
+surgical changes with a change report, not a replacement. **Delivered**
+— design record in
+[`spec/RFC-0004`](spec/RFC-0004-transform-and-voice.md).
 
-- Transform as a first-class mode alongside compose and evaluate.
-- Protected spans: mark a region as untouchable and have it enforced,
-  not merely detected.
-- Voice integrity as a real check: compare a variant against the
-  author's own corpus rather than against nothing.
-- The design layer in the browser viewer, sharing the Pyodide bundle it
-  is already shipped in.
-- Difference maps in the transformation harness's Compare panel.
+- [x] Transform as a first-class mode alongside compose and evaluate.
+      It has to be asked for: "what is wrong" and "what to change" are
+      different questions.
+- [x] Located edits — `insert` at an offset, `revise` / `move` / `cut`
+      over a span — each with an instruction and never with prose.
+- [x] Protected spans enforced: located across line wrapping, and an
+      edit that would overwrite one is reported as blocked rather than
+      dropped.
+- [x] Every gap accounted for: folded into another edit, or named as
+      unlocatable. Never silently absent.
+- [x] Voice as observable habits with their numbers. The stylometric
+      similarity was built, measured, and **removed** — same-author and
+      different-author pairs overlap at these text lengths, so the
+      verdict would have been a coin flip. The measurement is in the RFC
+      so nobody re-adds it.
+- [ ] The design layer in the browser viewer, sharing the Pyodide bundle
+      it is already shipped in. **Deferred** — `web/` wiring, not engine
+      work.
+- [ ] Difference maps in the transformation harness's Compare panel.
+      **Deferred** for the same reason.
 
 ## Wave 3 — genre packs and reader models
 

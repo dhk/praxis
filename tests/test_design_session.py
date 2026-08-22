@@ -67,8 +67,10 @@ def test_derived_analysis_is_never_persisted():
     """A stored verdict goes stale the moment a rule changes."""
     record = store.save(store.blank("Plan", "We may need help."))
     stored = json.loads(store.path_for(record["id"]).read_text())
-    assert set(stored) == {"id", "title", "draft", "values", "inferred",
-                           "variants", "created", "updated"}
+    # Inputs only. `voice_reference` is a sample of the writer's own prose,
+    # supplied by them; nothing computed from any of it is stored.
+    assert set(stored) == {"id", "title", "draft", "values", "inferred", "variants",
+                           "voice_reference", "created", "updated"}
     assert store.result_for(stored)["strategy"]["structure"]
 
 
