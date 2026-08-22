@@ -340,14 +340,33 @@ def test_a_courtesy_phrase_is_not_an_escalation_path():
     assert signals.find("escalation", "If this is not resolved by 5, page the on-call.")
 
 
-def test_an_update_commitment_must_name_a_time():
-    """`requirements()` asks a crisis message for a named next update
-    *time*. "I will update the runbook" names neither."""
-    for empty in ["I will update the runbook.", "I will update the ticket description."]:
-        assert signals.find("update_cadence", empty) == [], empty
-    for real in ["I will update you at 5 p.m.", "Next update by 6 p.m.",
-                 "We will report back by Thursday.", "Updates every hour."]:
-        assert signals.find("update_cadence", real), real
+@pytest.mark.parametrize("text", [
+    "I will update you at 5 p.m.", "Next update by 6 p.m.", "Next update: 6 p.m.",
+    "We will report back by Thursday.", "Updates every hour.", "Updates hourly.",
+    "I will update you tomorrow.", "I will update you on Monday.",
+    "I will update you by EOD.", "I will update you within the hour.",
+    "I will follow up in 30 minutes.", "Another update at noon.",
+])
+def test_a_named_update_time_is_recognised(text):
+    assert signals.find("update_cadence", text), text
+
+
+@pytest.mark.parametrize("text", [
+    # No update to the reader, and no time.
+    "I will update the runbook.", "I will update the ticket description.",
+    # A preposition is not a time. Admitting bare prepositions as anchors
+    # was the fix for the line above, and it made all of these count as a
+    # named next update time.
+    "I will update you by email.", "I will update you at length.",
+    "I will update you within the document.", "I will update you by then.",
+    "I will update you at some point.", "I will update you every so often.",
+    # Day names need their boundaries: `mon` sits inside "monitor",
+    # `sat` inside "saturation".
+    "I will update you on the monitor.", "We will update the saturation curve.",
+    "I will update you with a summary.",
+])
+def test_a_vague_promise_is_not_a_named_update_time(text):
+    assert signals.find("update_cadence", text) == [], text
 
 
 def test_the_stakes_tiers_stay_cumulative():

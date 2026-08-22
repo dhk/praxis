@@ -104,18 +104,32 @@ ESCALATION = re.compile(
 #: A commitment to say more, *and when*.
 #:
 #: The time is the requirement — `strategy.REQUIREMENTS` asks a crisis
-#: message for "a named next update time", and an earlier version matched
+#: message for "a named next update time" — so every alternative has to
+#: carry a real temporal anchor.
+#:
+#: Two rounds of getting this wrong are worth recording. It first matched
 #: "I will update the runbook.", which names neither an update to the
-#: reader nor a time. Every alternative here carries a temporal anchor.
-_WHEN = (r"(?:by|at|before|within|every|each)\b|tomorrow|today|tonight|hourly|daily"
-         r"|EOD\b|COB\b|end of (?:day|week)|\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)"
-         r"|mon|tue|wed|thu|fri|sat|sun")
+#: reader nor a time. The fix admitted bare prepositions as anchors, which
+#: made "I will update you by email", "at length", "within the document",
+#: "by then" and "every so often" all count as a named update time. A
+#: preposition is not a time; it now has to be followed by one.
+_CLOCK = (r"\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)|\b\d{1,2}:\d{2}\b"
+          r"|\b\d{4}-\d{2}-\d{2}\b|\bnoon\b|\bmidnight\b")
+#: Day names need their boundaries: without them `mon` sits inside
+#: "monitor" and `sat` inside "saturate".
+_DAY = r"\b(?:mon|tues?|wed(?:nes)?|thurs?|fri|sat(?:ur)?|sun)(?:day)?\b"
+_RELATIVE = (r"\b(?:today|tomorrow|tonight|EOD|COB|end of (?:the )?(?:day|week)"
+             r"|next week|this (?:morning|afternoon|evening)|the hour"
+             r"|\d+\s*(?:minutes?|hours?|days?))\b")
+_CADENCE = r"\b(?:hourly|daily|twice daily|every\s+(?:\d+\s*)?(?:minute|hour|day)s?)\b"
+_WHEN = f"(?:{_CLOCK}|{_DAY}|{_RELATIVE}|{_CADENCE})"
+
 UPDATE_CADENCE = re.compile(
-    r"\b(?:next update\b[^.\n]{0,40}?(?:" + _WHEN + r")"
-    r"|(?:I|we)(?:'ll| will) (?:update|report back|follow up|write again)\b"
-    r"[^.\n]{0,60}?(?:" + _WHEN + r")"
-    r"|(?:another|further) update\b[^.\n]{0,40}?(?:" + _WHEN + r")"
-    r"|updates? (?:every|hourly|daily)\b)", FLAGS)
+    r"\b(?:next update\b[^.\n]{0,40}?" + _WHEN
+    + r"|(?:I|we)(?:'ll| will) (?:update|report back|follow up|write again)\b"
+      r"[^.\n]{0,60}?" + _WHEN
+    + r"|(?:another|further) update\b[^.\n]{0,40}?" + _WHEN
+    + r"|updates?\s+" + _CADENCE + r")", FLAGS)
 
 #: Structural affordances that let a reader scan instead of read.
 SCAN = re.compile(r"^\s{0,3}(?:[-*+]\s|\d+[.)]\s|#{1,6}\s)|\*\*[^*]+\*\*", re.MULTILINE)
