@@ -1,5 +1,7 @@
 # praxis
 
+**Type:** guide · [document types](AGENTS.md#documents)
+
 > An early reference implementation for transparent, auditable written communication.
 
 Praxis turns document work into an inspectable workflow. Instead of returning only a rewritten document, it records what it observed, what it recommended, which changes it made, and whether protected content survived. That trail makes a transformation reviewable, testable, and portable between the command line and the browser.

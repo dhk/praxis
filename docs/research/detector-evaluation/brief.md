@@ -1,5 +1,7 @@
 # Research brief: evaluating LLM-authored text detectors
 
+**Type:** handout — a derived artifact of the specification, not a document in its own right · [document types](../../../AGENTS.md#documents)
+
 **Design doc under research:**
 [`spec/RFC-0005-detector-measurement.md`](../../../spec/RFC-0005-detector-measurement.md)
 **Topic slug:** `detector-evaluation`

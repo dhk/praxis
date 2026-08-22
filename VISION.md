@@ -1,5 +1,7 @@
 # Praxis Vision
 
+**Type:** charter · [document types](AGENTS.md#documents)
+
 ## Product thesis
 
 Every mainstream writing tool sells prose. Ask for help and you get

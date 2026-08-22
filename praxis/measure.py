@@ -101,10 +101,13 @@ def _blank() -> dict:
 
 
 def _ratio(numerator: int, denominator: int) -> float | None:
-    """`None`, not zero, when nothing was measured.
+    """`None`, not zero, when the denominator is empty.
 
-    A detector with no labelled positives has not scored 0% precision; it
-    has not been measured, and the two must not print the same.
+    Used for both precision and recall, so the condition is stated in
+    terms of the denominator rather than either metric's inputs: nothing
+    was counted, so there is no ratio. A detector with an empty
+    denominator has not scored zero — it has not been measured, and the
+    two must never print the same.
     """
     return round(numerator / denominator, 3) if denominator else None
 
@@ -131,3 +134,37 @@ def report(result: dict | None = None) -> str:
 
 def _show(value: float | None) -> str:
     return "unmeasured" if value is None else f"{value:.3f}"
+
+
+def tiered_report(examples: list[dict] | None = None) -> str:
+    """The headline figure, and generated coverage below it — never mixed.
+
+    Reporting one blended number would undo the reason provenance is
+    tracked at all. The separation is structural rather than a flag,
+    because a flag is something a caller forgets and a blended number
+    then reads as ground truth.
+    """
+    examples = load() if examples is None else examples
+    text = ["# Headline — written by a person, or found by a reviewer",
+            "",
+            report(score(examples, sources=TRUSTED))]
+
+    for tier, heading, why in TIERS_BELOW:
+        rows = [e for e in examples if e.get("source") == tier]
+        text += ["", "", f"# {heading}", "", why, ""]
+        text.append(report(score(examples, sources=(tier,))) if rows
+                    else "_none yet._")
+    return "\n".join(text)
+
+
+#: Tiers reported beside the headline rather than inside it, with the
+#: reason each is held apart. Both are authored by the same kind of thing
+#: that wrote the patterns, which is the entire point of separating them.
+TIERS_BELOW = (
+    ("corpus", "Boundary examples written while building the corpus",
+     "Pinned after a score exposed a boundary. The labels are usually obvious to "
+     "anyone, but the author is the one who wrote the pattern."),
+    ("generated", "Generated examples",
+     "Produced by a language model. The detectors were written by one too, so "
+     "these share their blind spots by construction."),
+)

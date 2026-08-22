@@ -1,5 +1,7 @@
 # Findings: <source name>
 
+**Type:** handout — a derived artifact of the specification, not a document in its own right · [document types](../../../../AGENTS.md#documents)
+
 One section per brief question, in the same order. Do not reorder,
 merge, or skip sections.
 

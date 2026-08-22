@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+**Type:** guide · [document types](AGENTS.md#documents)
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 Engineering rules, product invariants, and working method live in

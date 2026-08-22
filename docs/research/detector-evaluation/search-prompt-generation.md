@@ -1,5 +1,7 @@
 # Search prompt: generating and labelling corpus content
 
+**Type:** handout — a derived artifact of the specification, not a document in its own right · [document types](../../../AGENTS.md#documents)
+
 A narrower companion to [`handoff-prompt.md`](handoff-prompt.md). That one
 asks seven questions across evaluation methodology; this one asks only
 about the part being decided first — **how much of the corpus can be

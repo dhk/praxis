@@ -1,5 +1,7 @@
 # AGENTS.md
 
+**Type:** charter · [document types](AGENTS.md#documents)
+
 ## Purpose
 
 This repository contains **praxis**, an auditable communication-design
@@ -86,9 +88,13 @@ a feature commit.
 
 ## Documents
 
-Every document here is **one of these types**, and says which in its own
-header. A document that is not one of them is either mis-typed or should
-not exist.
+Every document here is **one of these types**, and says which **within
+its first few lines** — `**Type:** <type> · [document types](…)`. The
+position matters: a design document further down its own body once
+carried a typography note reading "**Type:** headings + body use…", which
+looked exactly like a declaration and hid the fact that the file had
+none. A document that is not one of these types is either mis-typed or
+should not exist.
 
 | Type | Answers | Lives in |
 |---|---|---|
@@ -106,10 +112,11 @@ straight to results is how a pass ends up measuring whatever it happened
 to find.
 
 **Handouts are not documents.** A brief, a handoff prompt, a search
-prompt — these are the specification's questions packaged for a
-particular recipient. They live beside it and are derived from it; they
-are not a ninth type, and they never carry a decision the specification
-does not already carry.
+prompt, a template — these are a specification's questions packaged for a
+particular recipient. They live beside it, are derived from it, and never
+carry a decision it does not already carry. They are not a ninth type,
+but they still say what they are in their header, so nothing in the
+repository is left unlabelled.
 
 ### Both lists earn their keep
 

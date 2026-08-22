@@ -1,5 +1,7 @@
 # The detector corpus
 
+**Type:** guide · [document types](../AGENTS.md#documents)
+
 Examples with known answers, used to measure whether `praxis/signals.py`
 agrees with what praxis claims a signal means.
 
@@ -17,12 +19,14 @@ praxis applies to itself. An example that labels one detector is worth
 more than one that guesses at twelve.
 
 `source` records where the example came from, because it changes how much
-the number is worth:
+the number is worth. Only `hand` and `review` (`measure.TRUSTED`) reach
+the headline figure; the other two are reported beside it:
 
 | `source` | Meaning |
 |---|---|
 | `hand` | Written by a person or from a real message. Ground truth. |
 | `review` | A case a reviewer found praxis getting wrong. Ground truth, and the most valuable kind: it is a failure that actually happened. |
+| `corpus` | Written while building the corpus, to pin a boundary the scores had just exposed. The label is usually obvious to anyone — "slipped by 5 days" is plainly not a deadline — but the *author* is the same one who wrote the pattern, so it is scored as its own tier rather than folded into the headline. |
 | `generated` | Produced by a language model. **Weaker evidence** — see below. |
 
 ## Why `source` matters

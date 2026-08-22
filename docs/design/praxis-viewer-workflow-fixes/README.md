@@ -1,5 +1,7 @@
 # Handoff: Praxis Viewer — Workflow Layout Fixes
 
+**Type:** requirement · [document types](../../../AGENTS.md#documents)
+
 ## Overview
 Three targeted UX fixes to the Praxis artifact-trail viewer (the 7-step pipeline UI: Input → Observe → Recommend → Transform → Validate → Report → Compare). These address split focus on the Input step, a misordered Report tab set, and a redundant terminal "Compare" step. This is not a new feature — it's a layout/IA correction to an existing flow.
 

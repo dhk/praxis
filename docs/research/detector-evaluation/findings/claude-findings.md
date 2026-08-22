@@ -1,5 +1,7 @@
 # Findings: Claude (in-session)
 
+**Type:** research results · [document types](../../../../AGENTS.md#documents)
+
 Written before reading any other source. Knowledge cutoff May 2026;
 anything after that is a gap, and every entry below should be verified
 against primary sources rather than taken from this file. Where a claim

@@ -1,5 +1,7 @@
 # Detector evaluation research
 
+**Type:** guide · [document types](../../../AGENTS.md#documents)
+
 Prior art for RFC-0005: how to measure text detectors whose rules were
 written by a language model, without the evaluation inheriting the same
 blind spots.

@@ -1,5 +1,7 @@
 # Contributing
 
+**Type:** guide · [document types](AGENTS.md#documents)
+
 Praxis is an early reference implementation. Contributions should strengthen its inspectable pipeline and preserve the contract shared by the CLI and browser viewer.
 
 Every contribution should answer:

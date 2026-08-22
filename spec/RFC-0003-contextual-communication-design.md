@@ -1,5 +1,7 @@
 # RFC-0003: Contextual communication design
 
+**Type:** RFC · [document types](../AGENTS.md#documents)
+
 Status: Draft
 Version: 0.1
 Depends on: RFC-0001

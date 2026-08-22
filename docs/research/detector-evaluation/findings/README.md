@@ -1,5 +1,7 @@
 # Findings
 
+**Type:** guide · [document types](../../../../AGENTS.md#documents)
+
 One file per source, named `<source-slug>-findings.md` —
 `claude-findings.md`, `perplexity-findings.md`, and so on.
 

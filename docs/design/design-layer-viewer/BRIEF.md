@@ -1,5 +1,7 @@
 # Design requirement: the design layer in the browser viewer
 
+**Type:** requirement · [document types](../../../AGENTS.md#documents)
+
 **For:** a UI spec. **Status:** requirement, not a spec.
 **Deferred from:** wave 2 ([ROADMAP.md](../../../ROADMAP.md)).
 

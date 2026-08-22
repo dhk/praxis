@@ -1,5 +1,7 @@
 # Handoff: Praxis artifact-trail viewer (RFC-0002)
 
+**Type:** requirement · [document types](../../../AGENTS.md#documents)
+
 ## Overview
 Praxis is a deterministic, stdlib-only Python pipeline that rewrites prose for clarity in
 six passes. This handoff covers the **web UI** for it: a static, single-page site where a

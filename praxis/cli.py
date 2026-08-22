@@ -85,15 +85,18 @@ def corpus(show_prompt: bool, detector: str | None, out: Path | None) -> None:
     of their choosing, without praxis and without this repository.
     """
     from . import handoff
-    from .measure import report, score
+    from .measure import tiered_report
 
     if not show_prompt:
-        print(report(score(sources=("hand", "review", "corpus", "generated"))))
+        print(tiered_report())
         return
     try:
         text = handoff.corpus_prompt(detector)
     except KeyError as exc:
-        raise SystemExit(str(exc).strip('"')) from exc
+        # `str(KeyError)` is the repr of its argument, so the quote
+        # character depends on whether the message itself contains one.
+        # Stripping double quotes worked only by accident.
+        raise SystemExit(exc.args[0]) from exc
     if out:
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(text, encoding="utf-8")

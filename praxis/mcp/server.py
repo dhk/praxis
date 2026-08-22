@@ -426,7 +426,7 @@ def corpus_commission(detector: str = "") -> dict:
                              "lines appended to corpus/detectors.jsonl with "
                              "source 'generated', which is scored separately."}
     except KeyError as exc:
-        return {"error": str(exc).strip('"')}
+        return {"error": exc.args[0]}
 
 
 @mcp.tool()

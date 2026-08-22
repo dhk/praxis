@@ -1,5 +1,7 @@
 # Praxis viewer
 
+**Type:** guide · [document types](../AGENTS.md#documents)
+
 **[Open the live viewer](https://dhk.github.io/praxis/).**
 
 The viewer is the browser interface to Praxis's inspectable artifact trail. Paste or upload Markdown, choose a transformation pack, run the pipeline once, then move through its observations, recommendations, transformations, validation, report, and comparison. Stepping is inspection rather than repeated execution.

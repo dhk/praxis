@@ -1,5 +1,7 @@
 # Handoff prompt
 
+**Type:** handout — a derived artifact of the specification, not a document in its own right · [document types](../../../AGENTS.md#documents)
+
 Copy everything below the line into Perplexity (or any research tool).
 It is self-contained — the recipient needs no access to this repository.
 

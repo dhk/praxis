@@ -192,3 +192,81 @@ def test_the_commission_is_prose_and_never_calls_anything():
     source = inspect.getsource(handoff)
     for banned in ("requests", "urllib", "httpx", "anthropic", "openai"):
         assert banned not in source
+
+
+# --- findings from the Copilot review on #38 ---------------------------
+
+def test_the_headline_never_blends_provenance_tiers():
+    """Reporting one number across all sources would undo the reason
+    provenance is tracked at all."""
+    from praxis.measure import TIERS_BELOW, TRUSTED, tiered_report
+    assert TRUSTED == ("hand", "review")
+    assert [tier for tier, _, _ in TIERS_BELOW] == ["corpus", "generated"]
+    text = tiered_report()
+    assert "# Headline" in text
+    assert "sources: hand, review" in text
+    for tier, _, _ in TIERS_BELOW:
+        assert f"sources: {tier}" in text or "_none yet._" in text
+
+
+def test_every_provenance_tier_in_use_is_documented():
+    """The `corpus` tier was added to the data and not to its README."""
+    import json
+    from praxis.measure import CORPUS
+    readme = (CORPUS.parent / "README.md").read_text(encoding="utf-8")
+    used = {json.loads(line)["source"]
+            for line in CORPUS.read_text(encoding="utf-8").splitlines() if line.strip()}
+    for tier in used:
+        assert f"`{tier}`" in readme, f"tier {tier} is used but undocumented"
+
+
+def test_an_unknown_detector_message_survives_repr_quoting():
+    """`str(KeyError)` is the repr of its argument, so the quote character
+    depends on whether the message itself contains one. Stripping double
+    quotes worked only because it happened to."""
+    from praxis.handoff import corpus_prompt
+    try:
+        corpus_prompt("nope")
+    except KeyError as exc:
+        assert exc.args[0].startswith("Unknown detector")
+        assert not exc.args[0].startswith(("'", '"'))
+    else:
+        raise AssertionError("expected KeyError")
+
+
+def test_every_document_declares_its_type():
+    """The convention was added and applied to two of twenty-six files."""
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent
+    named = ("README.md", "CONTRIBUTING.md", "AGENTS.md", "VISION.md",
+             "ROADMAP.md", "CLAUDE.md", "corpus/README.md", "web/README.md")
+    docs = sorted({*root.glob("docs/**/*.md"), *root.glob("spec/**/*.md"),
+                   *(root / n for n in named)})
+    undeclared = [str(p.relative_to(root)) for p in docs
+                  if p.exists() and "**Type:**" not in _header(p)]
+    assert undeclared == [], undeclared
+
+
+def _header(path) -> str:
+    """The first few lines of a document.
+
+    The declaration has to be *in the header*, and checking the whole file
+    is not the same test: `docs/design/praxis-viewer/README.md` has a
+    typography line reading "**Type:** headings + body use…" a hundred
+    lines down, which looked like a declaration and hid the fact that the
+    file had none.
+    """
+    return "\n".join(path.read_text(encoding="utf-8").splitlines()[:8])
+
+
+def test_declared_types_come_from_the_enumeration():
+    import re
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent
+    allowed = {"charter", "RFC", "requirement", "guide", "research idea",
+               "research specification", "research results",
+               "research recommendations", "handout"}
+    for path in sorted({*root.glob("docs/**/*.md"), *root.glob("spec/**/*.md")}):
+        match = re.search(r"\*\*Type:\*\* ([a-zA-Z ]+)", path.read_text(encoding="utf-8"))
+        assert match, path
+        assert match.group(1).strip() in allowed, (path, match.group(1))

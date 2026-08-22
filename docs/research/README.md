@@ -1,5 +1,7 @@
 # Research
 
+**Type:** guide · [document types](../../AGENTS.md#documents)
+
 Prior-art passes commissioned to de-risk a design doc before it leaves
 Draft. Each topic gets its own folder:
 
