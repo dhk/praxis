@@ -123,6 +123,21 @@ _SUPPRESSORS: tuple[tuple[dict, str], ...] = (
 )
 
 
+def rule_fields() -> set[str]:
+    """Every contract field the shading rules actually read.
+
+    Derived rather than listed, so a new tension cannot quietly add an
+    input that the confidence calculation and `schema()` still think is
+    decorative.
+    """
+    fields: set[str] = set()
+    for rule, *_ in _TENSIONS:
+        fields |= set(rule)
+    for rule, _ in _SUPPRESSORS:
+        fields |= set(rule)
+    return fields
+
+
 def _matches(rule: dict, contract: Contract) -> bool:
     return all(contract.get(field) in allowed for field, allowed in rule.items())
 
@@ -169,15 +184,30 @@ PRESENCE_INVARIANTS = ("ask", "deadline", "owner", "verification")
 def invariants(base: str, contract: Contract) -> dict:
     """What must survive every variant of `base`.
 
-    Verbatim: figures, percentages, links, bracketed references,
-    citation years, and any string the writer declared protected.
-    Presence: the structural commitments — that an ask exists at all,
-    that a deadline exists at all — whose wording may change freely.
+    Verbatim content splits into two kinds that must be *checked*
+    differently, even though a reader sees one list:
+
+    * **tokens** — figures, percentages, links, bracketed references and
+      citation years, found by the same extraction on both sides and
+      compared as sets. Substring containment is not good enough here and
+      the difference is not academic: `"40%" in "Costs rose 140%"` is
+      true, so a substring check certified a changed figure as preserved.
+      That is the one guarantee this product is sold on.
+    * **phrases** — strings the writer declared protected. These are
+      free-form ("without prejudice"), so containment is exactly right:
+      the phrase must appear, and the surrounding wording may move.
+
+    Presence invariants are the structural commitments — that an ask
+    exists at all, that a deadline exists at all — whose wording may
+    change freely.
     """
-    verbatim = sorted(protected_tokens(base) | set(contract.protected_strings()))
+    tokens = sorted(protected_tokens(base))
+    phrases = contract.protected_strings()
     present = {name: signals.find(name, base) for name in PRESENCE_INVARIANTS}
     return {
-        "verbatim": verbatim,
+        "verbatim": sorted(set(tokens) | set(phrases)),
+        "tokens": tokens,
+        "phrases": phrases,
         "presence": {k: v for k, v in present.items() if v},
         "uncertainty_markers": signals.find("uncertainty", base),
         "note": "Verbatim tokens are compared byte-for-byte. Presence invariants must "
@@ -215,7 +245,9 @@ def check(source: str, variant: str, contract: Contract, shade: str | None = Non
     # reference rather than leaving the reader to guess.
     violations: list[dict] = []
 
-    missing = [t for t in inv["verbatim"] if t not in variant]
+    kept = protected_tokens(variant)
+    missing = sorted(set(inv["tokens"]) - kept
+                     | {p for p in inv["phrases"] if p not in variant})
     if missing:
         violations.append({
             "kind": "content_loss", "severity": "block",

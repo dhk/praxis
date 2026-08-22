@@ -40,6 +40,13 @@ class Field:
     question: str
     domain: tuple[str, ...] | None = None
     note: str = ""
+    kind: str = "text"
+    """`text`, `number`, or `list`.
+
+    The CLI passes every `--set` value as a string, so without this a
+    numeric field arrived as `"250"`, failed the `isinstance(int)` check
+    in the evaluator, and was silently ignored — accepted at one
+    interface and enforced at another."""
 
 
 FIELDS: tuple[Field, ...] = (
@@ -48,7 +55,8 @@ FIELDS: tuple[Field, ...] = (
           "Cover letter, decision memo, incident update, postmortem, handoff."),
     Field("medium", "artifact", "How will they read it?",
           ("slack", "email", "memo", "report", "proposal", "handoff", "doc")),
-    Field("length_limit", "artifact", "Is there a length you must stay under?", None),
+    Field("length_limit", "artifact", "Is there a length you must stay under?", None,
+          "In words.", kind="number"),
     # --- situation -----------------------------------------------------
     Field("trigger", "situation", "What happened, and why write now?", None),
     Field("urgency", "situation", "How soon must this land?",
@@ -85,7 +93,8 @@ FIELDS: tuple[Field, ...] = (
     # --- constraints ---------------------------------------------------
     Field("protected", "constraints",
           "Which exact words, figures, or commitments may not change?", None,
-          "A list of literal strings. Checked byte-identically in every variant."),
+          "A list of literal strings. Checked byte-identically in every variant.",
+          kind="list"),
     Field("voice", "constraints", "How much may the writing stop sounding like you?",
           ("preserve", "adapt", "match_exemplar")),
 )
@@ -94,9 +103,13 @@ BY_NAME = {f.name: f for f in FIELDS}
 SECTIONS = ("artifact", "situation", "reader", "outcome", "relationship",
             "evidence", "constraints")
 
-#: Fields whose value selects the strategy. `material_questions` perturbs
-#: exactly these; everything else describes the situation without moving
-#: the recommendation, so asking about it is intake, not design.
+#: Fields with a closed domain, and so the ones `material_questions` can
+#: perturb. Not the same as "fields that select the strategy" — see
+#: `strategy.STRATEGY_INPUTS`, which is derived from the rule tables and
+#: is what `schema()` and the confidence calculation use. `voice` has a
+#: closed domain and no rule reads it; perturbation correctly finds it
+#: immaterial, but counting it as a known strategy input made a contract
+#: look more decided than the rules supported.
 SELECTORS = tuple(f.name for f in FIELDS if f.domain)
 
 
@@ -175,16 +188,26 @@ def _check(name: str, value: Any) -> Any:
     if f is None:
         raise ContractError(
             f"Unknown contract field {name!r}. Known fields: {', '.join(BY_NAME)}")
-    if f.domain and value not in (None, ""):
-        if value not in f.domain:
-            raise ContractError(
-                f"{name}={value!r} is outside its domain. Allowed: {', '.join(f.domain)}")
+    if value in (None, ""):
+        return value
+    if f.domain and value not in f.domain:
+        raise ContractError(
+            f"{name}={value!r} is outside its domain. Allowed: {', '.join(f.domain)}")
+    if f.kind == "number":
+        try:
+            return int(str(value).strip())
+        except (TypeError, ValueError):
+            raise ContractError(f"{name}={value!r} must be a whole number") from None
+    if f.kind == "list" and isinstance(value, str):
+        return [value]
     return value
 
 
 def schema() -> list[dict]:
     """The field registry as data, for clients that render a contract form."""
+    from .strategy import STRATEGY_INPUTS  # local: strategy reads contracts
+
     return [{"name": f.name, "section": f.section, "question": f.question,
              "domain": list(f.domain) if f.domain else None, "note": f.note,
-             "selects_strategy": f.name in SELECTORS}
+             "kind": f.kind, "selects_strategy": f.name in STRATEGY_INPUTS}
             for f in FIELDS]

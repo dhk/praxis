@@ -58,7 +58,7 @@ from typing import Any
 
 from praxis import brief, render
 from praxis.contract import ContractError, schema
-from praxis.shading import SHADES
+from praxis.shading import MAX_ALTERNATIVES, SHADES
 from praxis.strategy import STRUCTURES
 from praxis.mcp import store
 
@@ -217,7 +217,12 @@ def _update(record: dict, stated: dict | None, inferred: dict | None, draft: str
     try:
         build(record["values"], record["inferred"])
     except ContractError as exc:
-        return {"error": str(exc), "hint": "call design_schema for the allowed values"}
+        # Carries next_step like every other reply: this correction is an
+        # ordinary turn in the loop, not an exit from it.
+        return {"session": record["id"], "error": str(exc),
+                "next_step": "Call design_schema for the allowed values, then design_update "
+                             "again with a corrected value. Nothing was saved.",
+                "hint": "call design_schema for the allowed values"}
     store.save(record)
     return _reply(record)
 
@@ -272,6 +277,18 @@ def design_shade(session_id: str, variants: list[dict]) -> dict:
     A `fail` status means the version changed something it was not
     allowed to change. Rewrite it rather than explaining it away.
     """
+    alternatives = sum(1 for v in variants if not v.get("recommended"))
+    if len(variants) > 1 and alternatives > MAX_ALTERNATIVES:
+        # The bound is the product, not a default. Auditing a dozen
+        # versions would put them all in the reply and the rendered page,
+        # reintroducing exactly the choice overload bounded shading exists
+        # to prevent.
+        return {"session": session_id,
+                "error": f"{alternatives} alternatives submitted; at most "
+                         f"{MAX_ALTERNATIVES} are accepted alongside the recommendation",
+                "next_step": f"Pick the {MAX_ALTERNATIVES} that price a real tradeoff — "
+                             "design_open names them — and resubmit with the recommended "
+                             "version marked `recommended: true`."}
     record = store.load(session_id)
     record["variants"] = [
         {"shade": v.get("shade"), "text": v.get("text", ""), "label": v.get("label", ""),
@@ -296,7 +313,12 @@ def design_render(session_id: str, include_html: bool = True) -> dict:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(html, encoding="utf-8")
     out = {"session": record["id"], "title": record.get("title", ""),
-           "path": str(path), "bytes": len(html), "headline": result["headline"],
+           "path": str(path),
+           # write_text encodes UTF-8; len() counts code points, so any
+           # non-ASCII draft under-reported the size of the saved file.
+           "bytes": len(html.encode("utf-8")), "headline": result["headline"],
+           "next_step": "Publish `html` as an artifact and give the writer the link. "
+                        "The page is self-contained; it needs no assets.",
            "hint": "publish `html` as an artifact, or run `python -m praxis serve` to browse"}
     if include_html:
         out["html"] = html

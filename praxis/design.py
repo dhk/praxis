@@ -151,8 +151,9 @@ def _headline(result: dict) -> str:
     """One line a chat client can show without rendering the whole artifact."""
     s = result["strategy"]
     parts = [f"{s['title']} ({s['confidence']} confidence)"]
-    if result["questions"]:
-        parts.append(f"{len(result['questions'])} question(s) would change that")
+    outstanding = result["questions_outstanding"]
+    if outstanding:
+        parts.append(f"{outstanding} question(s) would change that")
     if "evaluation" in result:
         parts.append(result["evaluation"]["verdict"])
     if result["variants"]:

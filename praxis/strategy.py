@@ -118,6 +118,27 @@ STRUCTURES: tuple[Structure, ...] = (
 
 BY_ID = {s.id: s for s in STRUCTURES}
 
+
+def _strategy_inputs() -> frozenset[str]:
+    """The contract fields the rules genuinely read, structures and shades.
+
+    Derived from the tables rather than assumed to be "every field with a
+    closed domain". `voice` has a domain and no rule consults it, so
+    treating the two as the same thing advertised it in `schema()` as
+    strategy-selecting and let it raise the reported confidence of a
+    contract the rules were no better informed about.
+    """
+    from .shading import rule_fields
+
+    fields: set[str] = set(rule_fields())
+    for structure in STRUCTURES:
+        fields |= {name for name, _, _ in structure.favors}
+        fields |= {name for name, _, _ in structure.avoids}
+    return frozenset(fields)
+
+
+STRATEGY_INPUTS = _strategy_inputs()
+
 #: What a message must contain before it is safe to send, by stakes tier.
 #: Each tier inherits everything below it — rigor rises with consequence,
 #: it never resets.
@@ -211,12 +232,17 @@ def _confidence(best: Scored, runner: Scored, contract: Contract) -> str:
     A structure chosen from an empty contract is a default, not a finding,
     and saying so is the difference between disclosure and bluffing.
     """
-    known = sum(1 for n in SELECTORS if contract.is_set(n))
+    known = sum(1 for n in STRATEGY_INPUTS if contract.is_set(n))
     if known < 3 or best.score <= 0:
         return "low"
     if best.score - runner.score <= 1:
         return "contested"
     return "high" if known >= 6 else "moderate"
+
+
+def strategy_inputs() -> list[str]:
+    """The fields the rules read, in contract order."""
+    return [n for n in SELECTORS if n in STRATEGY_INPUTS]
 
 
 def _evidence_standard(stakes: str | None) -> str:

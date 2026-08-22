@@ -82,6 +82,66 @@ DRAFT = ("We reviewed the release plan and identified a risk in the data-migrati
          "implications in our next meeting.")
 
 
+def test_a_long_title_does_not_hang_id_allocation():
+    """`path_for` re-slugifies and truncates, so a title already at the
+    48-character limit had `-2` appended and cut straight back to the
+    original — which existed. `new_id` looped forever on a 61-character
+    subject line."""
+    title = "i wanted to flag something from our review of the release plan"
+    ids = [store.save(store.blank(title))["id"] for _ in range(3)]
+    assert len(set(ids)) == 3
+    assert all(len(i) <= 48 for i in ids)
+
+
+def test_an_id_is_reserved_when_it_is_allocated():
+    """Checked-then-created let two design_open calls take the same id and
+    the second save overwrite the first session."""
+    first = store.blank("Release delay")
+    assert store.path_for(first["id"]).exists(), "the id was not reserved"
+    second = store.blank("Release delay")
+    assert second["id"] != first["id"]
+
+
+def test_an_unsaved_reservation_does_not_break_the_listing():
+    store.blank("Reserved but never saved")
+    store.save(store.blank("Real one"))
+    assert [r["id"] for r in store.listing()] == ["real-one"]
+
+
+@needs_mcp
+def test_over_submitting_alternatives_is_refused():
+    opened = mcp_server.design_open("We may need help with the migration.")
+    result = mcp_server.design_shade(opened["session"], [
+        {"text": "one", "recommended": True},
+        {"text": "two"}, {"text": "three"}, {"text": "four"}])
+    assert "at most 2" in result["error"]
+    assert result["next_step"]
+
+
+@needs_mcp
+def test_every_reply_carries_a_next_step_including_the_error_ones():
+    opened = mcp_server.design_open("We may need help with the migration.")
+    bad = mcp_server.design_update(opened["session"], {"stakes": "enormous"})
+    rendered = mcp_server.design_render(opened["session"], include_html=False)
+    for reply in (opened, bad, rendered):
+        assert reply.get("next_step"), reply
+
+
+@needs_mcp
+def test_the_rendered_size_is_bytes_not_code_points():
+    opened = mcp_server.design_open("Costs rose 40% — the estimate is preliminary — in Q3.")
+    rendered = mcp_server.design_render(opened["session"])
+    assert rendered["bytes"] == len(rendered["html"].encode("utf-8"))
+    assert rendered["bytes"] > len(rendered["html"]), "the draft has no non-ASCII to prove this"
+
+
+def test_the_viewer_refuses_to_bind_a_public_interface():
+    """It serves saved drafts and contracts with no authentication."""
+    from praxis.mcp.serve import serve
+    with pytest.raises(SystemExit, match="loopback only"):
+        serve(host="0.0.0.0")
+
+
 @needs_mcp
 def test_the_first_call_answers_instead_of_interviewing():
     """There is no intake to get through. Even with nothing stated, the

@@ -73,7 +73,21 @@ class Handler(BaseHTTPRequestHandler):
         """Quiet by default: this runs beside a conversation, not in a log."""
 
 
+#: The viewer serves saved drafts and contracts with no authentication of
+#: any kind, on the stated understanding that it is reachable only from
+#: this machine. `--host 0.0.0.0` quietly turned that into a public
+#: read endpoint for everything the workspace holds, so the host override
+#: is now bounded rather than trusted.
+LOOPBACK = frozenset({"127.0.0.1", "::1", "localhost", ""})
+
+
 def serve(host: str = "127.0.0.1", port: int = 8765) -> None:
+    if host not in LOOPBACK:
+        raise SystemExit(
+            f"praxis serve binds loopback only; refused {host!r}.\n"
+            "Saved drafts and contracts are served without authentication. "
+            "To reach them from another machine, forward the port over a "
+            "tunnel you control rather than binding a public interface.")
     httpd = ThreadingHTTPServer((host, port), Handler)
     print(f"praxis viewer on http://{host}:{port}  (workspace: {store.home()})")
     try:

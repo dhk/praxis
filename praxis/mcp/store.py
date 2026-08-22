@@ -63,13 +63,37 @@ def path_for(session_id: str) -> Path:
     return sessions_dir() / f"{safe}.json"
 
 
+#: Longest slug that still leaves room for a `-999` suffix inside the
+#: 48-character limit `slugify` imposes.
+STEM = 44
+
+
 def new_id(title: str) -> str:
-    """A readable, collision-free id: the title, suffixed if taken."""
+    """A readable, collision-free id: the title, suffixed if taken.
+
+    Two things this has to get right, both of which it once got wrong.
+
+    The suffix is applied to a *shortened* stem. `path_for` slugifies
+    again, and slugifying truncates — so a title already at the length
+    limit had `-2` appended and immediately truncated back to the
+    original, which existed, forever. A 61-character subject line was
+    enough to hang the server.
+
+    The id is then reserved by creating the file atomically, rather than
+    checked and created in two steps. Two `design_open` calls with the
+    same title could otherwise be handed the same id, and the second save
+    would overwrite the first session.
+    """
     base = slugify(title)
-    candidate, n = base, 2
-    while path_for(candidate).exists():
-        candidate, n = f"{base}-{n}", n + 1
-    return candidate
+    stem = base[:STEM].rstrip("-") or "session"
+    for candidate in (base, *(f"{stem}-{n}" for n in range(2, 1000))):
+        try:
+            handle = os.open(path_for(candidate), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        except FileExistsError:
+            continue
+        os.close(handle)
+        return candidate
+    raise RuntimeError(f"could not allocate a session id for {title!r} after 999 attempts")
 
 
 def save(record: dict) -> dict:

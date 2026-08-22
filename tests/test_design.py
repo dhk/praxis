@@ -213,6 +213,121 @@ def test_shade_fidelity_is_reported_not_enforced():
     assert check["status"] == "fail"  # ...and the lost ask is still a failure
 
 
+# --- findings from the Copilot review on #32 ---------------------------
+
+def test_a_changed_figure_is_not_preserved_content():
+    """The guarantee the product is sold on, which substring containment
+    quietly broke: `"40%" in "Costs rose 140%"` is true."""
+    for base, variant in [("Costs rose 40% this quarter.", "Costs rose 140% this quarter."),
+                          ("We need 4 engineers.", "We need 40 engineers."),
+                          ("Ship 12 units.", "Ship 120 units.")]:
+        check = shading.check(base, variant, build())
+        assert check["status"] == "fail", f"{base} -> {variant}"
+        assert "content_loss" in [v["kind"] for v in check["violations"]]
+
+
+def test_moving_protected_content_around_is_still_allowed():
+    """Exact comparison must not become positional."""
+    check = shading.check("Costs rose 40% in Q3.", "In Q3, costs rose 40%.", build())
+    assert check["status"] == "pass"
+
+
+def test_a_declared_phrase_is_matched_as_a_phrase_not_a_token():
+    contract = build({"protected": ["without prejudice"]})
+    assert shading.check("Sent without prejudice.", "This is sent without prejudice, as agreed.",
+                         contract)["status"] == "pass"
+    assert shading.check("Sent without prejudice.", "Sent in good faith.",
+                         contract)["status"] == "fail"
+
+
+def test_a_url_keeps_its_identity_across_sentence_punctuation():
+    """`\\S+` swallowed the full stop, so moving a link to the end of a
+    sentence read as losing it."""
+    check = shading.check("See [ref-1] and https://x.io/a.", "https://x.io/a, see [ref-1].", build())
+    assert check["status"] == "pass"
+
+
+def test_an_unrecognised_claim_is_not_a_clean_bill_of_health():
+    """A detector finding nothing is not evidence there is nothing."""
+    finding = _dimension("The colour of the sky is blue.", {"stakes": "high"}, "evidence_fit")
+    assert finding["status"] == UNKNOWN
+    assert "limit of the detector" in finding["finding"]
+
+
+@pytest.mark.parametrize("stakes,required,text", [
+    ("crisis", "update cadence", "I will own this. Please confirm receipt."),
+    ("safety_critical", "escalation", "I will own this. Please confirm receipt."),
+])
+def test_raised_stakes_check_what_the_requirements_promise(stakes, required, text):
+    """`requirements()` told the writer these were mandatory while the
+    evaluator checked only owner and verification, and passed."""
+    finding = _dimension(text, {"stakes": stakes}, "risk_calibration")
+    assert finding["status"] == GAP
+    assert required in finding["finding"]
+
+
+def test_raised_stakes_pass_once_the_controls_are_there():
+    ok = _dimension("I will own this. Please confirm receipt. I will update you at 5 p.m.",
+                    {"stakes": "crisis"}, "risk_calibration")
+    assert ok["status"] == PASS
+
+
+def test_a_dimension_only_claims_to_check_what_it_checks():
+    """Actionability's question named four things and tested two."""
+    finding = _dimension("Please approve by 3 p.m.", {"intent": "request"}, "actionability")
+    assert "owner" not in finding["question"]
+    assert "risk_calibration" in finding["finding"]
+
+
+def test_a_numeric_field_survives_the_command_line():
+    """`--set length_limit=250` arrives as a string and was accepted, then
+    silently ignored by an isinstance check."""
+    contract = build({"length_limit": "250"})
+    assert contract.get("length_limit") == 250
+    finding = _dimension("word " * 300, {"length_limit": "250", "medium": "email"}, "medium_fit")
+    assert finding["status"] == GAP
+    with pytest.raises(ContractError, match="whole number"):
+        build({"length_limit": "soon"})
+
+
+def test_a_bare_protected_string_becomes_a_list():
+    assert build({"protected": "3 p.m."}).protected_strings() == ["3 p.m."]
+
+
+def test_strategy_inputs_are_derived_from_the_rules_not_from_having_a_domain():
+    """`voice` has a closed domain and no rule reads it. Counting it as a
+    strategy input made a contract look better informed than it was."""
+    from praxis.strategy import STRATEGY_INPUTS
+    assert "voice" in SELECTORS
+    assert "voice" not in STRATEGY_INPUTS
+    assert not [f for f in schema() if f["name"] == "voice" and f["selects_strategy"]]
+    for name in STRATEGY_INPUTS:
+        assert name in SELECTORS
+
+
+def test_confidence_ignores_fields_no_rule_reads():
+    inputs = {"intent": "request", "stakes": "high", "medium": "email"}
+    without = recommend(build(inputs))["confidence"]
+    with_voice = recommend(build({**inputs, "voice": "preserve"}))["confidence"]
+    assert without == with_voice
+
+
+def test_the_headline_reports_the_true_outstanding_count():
+    result = design(DRAFT, build())
+    assert f"{result['questions_outstanding']} question(s)" in result["headline"]
+    assert result["questions_outstanding"] > len(result["questions"])
+
+
+def test_the_unresolved_helper_is_not_the_capped_list():
+    result = design(DRAFT, build())
+    assert brief.unresolved_count(result) == result["questions_outstanding"]
+
+
+def _dimension(text: str, values: dict, name: str) -> dict:
+    return next(d for d in evaluate(text, build(values))["dimensions"]
+                if d["dimension"] == name)
+
+
 # --- evaluation -------------------------------------------------------
 
 def test_every_dimension_reports_a_valid_status():

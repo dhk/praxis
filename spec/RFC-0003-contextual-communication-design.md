@@ -123,9 +123,14 @@ safety-critical and crisis stakes, or a simple low-stakes ask.
 Invariants come in two kinds, and the distinction is what makes the
 mechanic usable:
 
-- **Verbatim** — figures, percentages, links, bracketed references,
-  citation years, and any string the writer declared protected. Compared
-  byte-for-byte.
+- **Verbatim tokens** — figures, percentages, links, bracketed
+  references, citation years. Extracted from both sides by the same rule
+  and compared as sets. Substring containment is not sufficient and the
+  gap is not academic: `"40%" in "Costs rose 140%"` is true, so a
+  containment check certified a changed figure as preserved.
+- **Verbatim phrases** — strings the writer declared protected. These are
+  free-form, so containment is exactly right: the phrase must appear and
+  the wording around it may move.
 - **Presence** — that an ask exists, a deadline exists, an owner exists,
   a confirmation exists. These must survive *in any wording*, because
   requiring an ask to survive rephrasing verbatim would forbid the very
@@ -250,8 +255,24 @@ comparison. Narrated in chat it is noise.
 - **Detectors are regular expressions.** They see structure and marker
   words, not meaning. Precision and recall are unmeasured; wave 4. Known
   corrections so far: modal requests ("could you approve") are excluded
-  from uncertainty, and bare `if` is not counted as a hedge — both
-  inflated the score of courteous drafts and masked real caveat losses.
+  from uncertainty and bare `if` is not counted as a hedge — both
+  inflated the score of courteous drafts and masked real caveat losses;
+  "approve by" no longer counts as a confirmation mechanism, being an ask
+  and a deadline that already have their own detectors.
+- **A detector finding nothing is reported as `unknown`, never as
+  `pass`.** `evidence_fit` once returned `pass` when it recognised no
+  consequential claim at all, telling a high-stakes draft its claims were
+  supported on the strength of having identified none.
+- **The evaluator checks what `requirements()` promises.** Raised stakes
+  are tier-specific: `high` needs an owner and a confirmation,
+  `safety_critical` adds an escalation path, `crisis` adds a named next
+  update. Checking only the first two at every tier passed a crisis
+  message with no update cadence while the same run told the writer one
+  was mandatory.
+- **A dimension may only claim to check what it checks.** `actionability`
+  asked about four elements and tested two; its question is now scoped to
+  the ask and the deadline, with owner and confirmation delegated to
+  `risk_calibration`, which is where stakes decide whether they matter.
 - **Tension ordering truncates.** With two alternative slots and several
   matching tensions, the first-declared tension wins and later ones are
   masked. Deterministic and documented, but the ordering is currently an

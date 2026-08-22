@@ -183,8 +183,18 @@ def _evidence_fit(text, stakes) -> Finding:
         window = sentence + " " + (sentences[i + 1] if i + 1 < len(sentences) else "")
         if not signals.find("evidence", window):
             unsupported.append(sentence.strip()[:140])
+    claims = [s for s in sentences if signals.find("consequential", s)]
+    if not claims:
+        # No claim was recognised, which is not the same as there being
+        # none. Reporting `pass` here told a high-stakes draft its claims
+        # were all supported on the strength of a detector finding nothing.
+        return _f("evidence_fit", q, UNKNOWN,
+                  "No consequential claim was recognised. That is a limit of the detector, "
+                  "not a finding that the draft makes none.",
+                  [], "Check by eye that any claim the reader will act on carries its support.")
     if not unsupported:
-        return _f("evidence_fit", q, PASS, "Every consequential claim sits near visible support.")
+        return _f("evidence_fit", q, PASS,
+                  f"All {len(claims)} consequential claim(s) sit near visible support.")
     if stakes in ("high", "safety_critical", "crisis"):
         return _f("evidence_fit", q, GAP,
                   f"{len(unsupported)} consequential claim(s) carry no figure, source, or reference.",
@@ -221,16 +231,31 @@ def _risk_calibration(found, stakes) -> Finding:
         return _f("risk_calibration", q, UNKNOWN, "The contract does not state the stakes.")
     if stakes in ("low", "moderate"):
         return _f("risk_calibration", q, PASS, f"No verification machinery required at {stakes} stakes.")
-    missing = [n for n in ("verification", "owner") if not found[n]]
+
+    # What each tier owes, mirroring strategy.REQUIREMENTS. Checking only
+    # owner and verification at every raised tier meant a crisis message
+    # with no named next update, and a safety-critical one with no
+    # escalation path, both passed — while `requirements()` told the
+    # writer those were mandatory.
+    required = {
+        "high": ("owner", "verification"),
+        "safety_critical": ("owner", "verification", "escalation"),
+        "crisis": ("owner", "verification", "update_cadence"),
+    }[stakes]
+    missing = [n for n in required if not found[n]]
     if missing:
         return _f("risk_calibration", q, GAP,
-                  f"At {stakes} stakes the draft lacks: {', '.join(missing)}.",
-                  found["verification"][:2] + found["owner"][:2],
-                  "Name who acts and how they confirm they received this.",
-                  f"no {_list(missing)}")
+                  f"At {stakes} stakes the draft lacks: {', '.join(n.replace('_', ' ') for n in missing)}.",
+                  [span for n in required for span in found[n][:1]],
+                  "Name who acts, how they confirm receipt, and "
+                  + ("what to do if it is not resolved." if "escalation" in missing
+                     else "when the next update comes." if "update_cadence" in missing
+                     else "by when."),
+                  f"no {_list([n.replace('_', ' ') for n in missing])}")
     return _f("risk_calibration", q, PASS,
-              f"Owner and confirmation are both present, as {stakes} stakes require.",
-              found["verification"][:2] + found["owner"][:2])
+              f"{', '.join(n.replace('_', ' ') for n in required)} all present, "
+              f"as {stakes} stakes require.",
+              [span for n in required for span in found[n][:1]])
 
 
 def _relationship_fit(found, contract) -> Finding:
@@ -282,7 +307,12 @@ def _voice_integrity() -> Finding:
 
 
 def _actionability(found, intent) -> Finding:
-    q = "Are the next action, owner, deadline, and confirmation clear?"
+    # Scoped to the ask and the deadline. Owner and confirmation are real
+    # requirements but they are stakes-dependent, and `risk_calibration`
+    # already owns them — asking for them here reported a gap on every
+    # ordinary low-stakes message, or (as it did) passed a draft while the
+    # dimension's own question named four things it had not checked.
+    q = "Is the next action clear, and is it bounded by a deadline?"
     present = [n for n in ("ask", "owner", "deadline", "verification") if found[n]]
     missing = [n for n in ("ask", "owner", "deadline", "verification") if not found[n]]
     if intent in ACTION_INTENTS and {"ask", "deadline"} & set(missing):
@@ -292,7 +322,12 @@ def _actionability(found, intent) -> Finding:
                   "An action without a deadline is a suggestion; add both.",
                   f"no {_list(missing)}")
     if len(present) >= 2:
-        return _f("actionability", q, PASS, f"Present: {', '.join(present)}.",
+        note = f"Present: {', '.join(present)}."
+        if missing:
+            note += (f" Not detected: {', '.join(missing)}"
+                     + (" — risk_calibration decides whether that matters here."
+                        if {"owner", "verification"} & set(missing) else "."))
+        return _f("actionability", q, PASS, note,
                   [found[n][0] for n in present if found[n]][:3])
     return _f("actionability", q, UNKNOWN,
               f"Only {', '.join(present) or 'none'} detected, which may suit intent '{intent}'.")

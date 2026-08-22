@@ -198,7 +198,13 @@ def at_depth(result: dict, depth: str) -> str:
 
 
 def unresolved_count(result: dict) -> int:
-    return len(result["questions"])
+    """Questions that would still change the answer — all of them.
+
+    `result["questions"]` is the display list, capped at three. Reading
+    the count off it reports "3" forever, which is the bug this helper
+    is named to avoid.
+    """
+    return result.get("questions_outstanding", len(result["questions"]))
 
 
 def settled_count(result: dict) -> int:

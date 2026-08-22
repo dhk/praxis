@@ -74,7 +74,7 @@ flowchart LR
 | `praxis/validation.py` | Checks protected tokens and applies explicit validation status. | Provides conservative evidence, not proof of semantic equivalence. |
 | `praxis/report.py` and `praxis/metrics.py` | Produce review-facing reports and before/after measurements. | Consume pipeline results; they do not decide edits. |
 | `praxis/cli.py` | Reads an input path and writes artifact files. | Thin adapter over `run_pipeline` and `design`. |
-| `praxis/contract.py` | The communication contract: fields, closed domains, provenance. | Data only; it selects nothing itself. |
+| `praxis/contract.py` | The communication contract: fields, closed domains, types, provenance. | Data only; it selects nothing itself. `SELECTORS` is "has a closed domain", which is not the same as `strategy.STRATEGY_INPUTS` ("a rule reads it"). |
 | `praxis/strategy.py` | Scores structures against a contract and computes which questions are material. | Generic over the `Structure` table; adding a structure never touches the scorer. |
 | `praxis/shading.py` | Decides whether variants are warranted, extracts invariants, checks a variant, and builds its difference map. | Reads contracts, never strategies. |
 | `praxis/evaluate.py` | Ten fit dimensions, each with evidence and an honest `unknown`. | Reports; it never rewrites and emits no score. |
@@ -189,9 +189,12 @@ description.
   which is also why compose sessions are checked at all rather than
   skipped. `difference_map` carries `compared_to` so a reader is never
   left guessing which reference a delta is measured against.
-- **Shading invariants come in two kinds and must stay separate.**
-  Verbatim invariants (figures, links, declared protected strings) are
-  compared byte-for-byte. Presence invariants (an ask, a deadline, an
+- **Shading invariants come in three kinds and must stay separate.**
+  Verbatim *tokens* (figures, links, references) are extracted from both
+  documents by the same rule and compared as sets — never by substring,
+  which reports `40%` as surviving into `140%`. Verbatim *phrases* (what
+  the writer declared protected) are free-form and so are compared by
+  containment. Presence invariants (an ask, a deadline, an
   owner, a confirmation) must survive in *any* wording — requiring them
   verbatim would forbid the rewriting shading exists to do. The
   uncertainty check sits alongside both: losing every marker of what is

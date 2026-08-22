@@ -73,9 +73,14 @@ OWNER = re.compile(
     r"|[A-Z][a-z]+ will\b)|@[A-Za-z][\w.-]*", re.MULTILINE)
 
 #: A mechanism that confirms the message was received and acted on.
+#:
+#: Deliberately not "approve by": that is an ask plus a deadline, both of
+#: which have their own detectors. Counting it here meant rewording
+#: "Approve by 3 p.m." to "approve before 3 p.m." registered as losing a
+#: confirmation the message never had.
 VERIFICATION = re.compile(
     r"\b(?:reply (?:\"?approved\"?|to (?:this|confirm))|confirm receipt|acknowledge"
-    r"|sign off|read ?back|let me know (?:if|once|when|by)|approve by"
+    r"|sign off|read ?back|let me know (?:if|once|when|by)"
     r"|please confirm|respond by)", FLAGS)
 
 #: A claim whose consequences make it worth supporting.
@@ -84,6 +89,18 @@ CONSEQUENTIAL = re.compile(
     r"|risks?\b|impacts?\b|delays?\b|costs?\b|outage|breach|failure|blocked"
     r"|missed?\s+(?:commitment|deadline|target)|revenue|churn|liabilit\w+)", FLAGS)
 
+#: A route for the reader when the normal path fails.
+ESCALATION = re.compile(
+    r"\b(?:escalat\w+|on[- ]?call|page (?:me|the|us)|if (?:this|it|you) (?:is |are )?not"
+    r"|if (?:this|that) (?:does not|doesn't) |otherwise contact|fall ?back"
+    r"|failing that|in the meantime, contact)\b", FLAGS)
+
+#: A commitment to say more, and when.
+UPDATE_CADENCE = re.compile(
+    r"\b(?:next update|further update|(?:I|we)(?:'ll| will) (?:update|follow up|report back|write again)"
+    r"|updates? (?:at|by|every|to follow)|another update|more (?:detail|information) (?:at|by|on)"
+    r"|update (?:you|again))\b", FLAGS)
+
 #: Structural affordances that let a reader scan instead of read.
 SCAN = re.compile(r"^\s{0,3}(?:[-*+]\s|\d+[.)]\s|#{1,6}\s)|\*\*[^*]+\*\*", re.MULTILINE)
 
@@ -91,6 +108,7 @@ DETECTORS = {
     "ask": ASK, "deadline": DEADLINE, "uncertainty": UNCERTAINTY, "hedge": HEDGE,
     "acknowledgement": ACKNOWLEDGEMENT, "evidence": EVIDENCE, "owner": OWNER,
     "verification": VERIFICATION, "consequential": CONSEQUENTIAL, "scan": SCAN,
+    "escalation": ESCALATION, "update_cadence": UPDATE_CADENCE,
 }
 
 
