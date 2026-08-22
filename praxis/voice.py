@@ -17,7 +17,7 @@ drawn through that range decides authorship by coin flip. Stylometry
 needs thousands of words per sample; an email is not that. The similarity
 number was therefore removed rather than shipped behind a caveat, because
 a number in a report gets read as a finding no matter what the caveat
-says. The measurement is recorded in RFC-0003 so nobody re-adds it.
+says. The measurement is recorded in RFC-0004 so nobody re-adds it.
 
 What survives is what was never inferential: **counts**. Whether a
 rewrite kept the writer's semicolons, their sentence rhythm, their

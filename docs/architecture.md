@@ -83,7 +83,7 @@ flowchart LR
 | `praxis/transform.py` | Turns each gap into a located edit, and checks it against protected content first. | Emits instructions, never prose. Every gap is addressed, folded, or named. |
 | `praxis/voice.py` | Which of the writer's countable habits a rewrite kept. | Habits, not authorship; never returns a `gap`. |
 | `praxis/design.py` | Orchestrates one design session and returns its result. | The single boundary all three interfaces consume. |
-| `praxis/brief.py` | Renders a design result as text at four depths, shallowest first. | Presentation only; it decides how much to say, never what is true. |
+| `praxis/brief.py` | Renders a design result as text at five depths, shallowest first. | Presentation only; it decides how much to say, never what is true. |
 | `praxis/render.py` | Renders a design result as a self-contained HTML page. | Pure string building; it can only show what the engine computed. |
 | `praxis/mcp/server.py` | The MCP tool surface and the loop it walks a client through. | The only place a client model receives instructions. |
 | `praxis/mcp/store.py` | Session persistence: contract, draft, variants. | Stores nothing derived, so no verdict can go stale. |

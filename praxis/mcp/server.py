@@ -292,10 +292,17 @@ def design_transform(session_id: str, voice_reference: str = "") -> dict:
     store.save(record)
     result = store.result_for(record, mode="transform")
     changes = result["transform"]
+    voice = next(d for d in result["evaluation"]["dimensions"]
+                 if d["dimension"] == "voice_integrity")
     return {
         "session": record["id"],
         "answer": brief.answer(result),
         "progress": brief.progress(result),
+        # Advertised in this tool's own description, so it is returned
+        # here rather than behind a second call the client has no reason
+        # to know it needs to make.
+        "voice": {"status": voice["status"], "finding": voice["finding"],
+                  "habits_changed": voice["evidence"]},
         "changes": changes["edits"],
         "protected": changes["protected"],
         "unlocatable_protected": changes["unlocatable"],
@@ -356,15 +363,26 @@ def design_shade(session_id: str, variants: list[dict]) -> dict:
 
 
 @mcp.tool()
-def design_render(session_id: str, include_html: bool = True) -> dict:
+def design_render(session_id: str, include_html: bool = True,
+                  mode: str = "auto") -> dict:
     """Render the session as a self-contained HTML page and save it.
 
     Publish the returned HTML as an artifact. The contract, the scorecard,
     and the variants with their difference maps are a comparison; they do
     not survive being narrated in chat.
+
+    Pass `mode="transform"` after calling design_transform, or the page
+    will not carry the located changes. The requested mode is not stored:
+    it is a question the caller asked, not a fact about the session, and
+    persisting it would make a rendered page depend on what somebody
+    asked for an hour ago.
     """
     record = store.load(session_id)
-    result = store.result_for(record)
+    if mode == "transform" and not record.get("draft", "").strip():
+        return {"session": record["id"],
+                "error": "there is no draft in this session to transform",
+                "next_step": "Call design_update with the draft first."}
+    result = store.result_for(record, mode=mode)
     html = render.document(result)
     path = store.home() / "pages" / f"{record['id']}.html"
     path.parent.mkdir(parents=True, exist_ok=True)

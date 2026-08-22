@@ -3,7 +3,7 @@
 Praxis spends its whole argument on leading with the answer, asking only
 what changes it, and letting the reader drill in — and then, for two
 commits, answered every tool call with a page of JSON. This module is the
-correction. It renders a design result at four depths, and the default is
+correction. It renders a design result at five depths, and the default is
 the shallowest one that is still true.
 
 The depths:
@@ -16,6 +16,7 @@ The depths:
   unknowns.
 * ``contract`` — the situation as praxis currently understands it,
   marked for what was stated and what was guessed.
+* ``edits`` — in a transform run, every located change with its place.
 
 `progress` is the piece that makes stopping a choice rather than a
 guess. It reports how many questions would still *change* the answer —
@@ -54,8 +55,16 @@ def answer(result: dict) -> str:
 def _transform_answer(result: dict, shape: str) -> str:
     """What to change, counted by kind, so the writer sees the shape of
     the work before the list of it."""
-    edits = result["transform"]["edits"]
+    changes = result["transform"]
+    edits = changes["edits"]
     if not edits:
+        stuck = changes["no_edit_for"]
+        if stuck:
+            # "Nothing to change" would contradict the page, which lists
+            # these as real gaps praxis could not point at.
+            return (f"{len(stuck)} gap(s) praxis could not locate a change for: "
+                    f"{', '.join(stuck)}. A human decides where these go. "
+                    f"Shape it {shape}.")
         return f"Nothing to change against this contract. The shape holds ({shape})."
     by_kind: dict[str, int] = {}
     for edit in edits:

@@ -48,6 +48,11 @@ def design(draft: str = "", contract: Contract | None = None,
     """
     if mode not in MODES:
         raise ValueError(f"Unknown mode {mode!r}. Available: {', '.join(MODES)}")
+    if mode == "transform" and not draft.strip():
+        # Silently falling back to compose left `mode` saying transform
+        # while the result had no edits in it, so callers of the library
+        # saw a shape the CLI and MCP guards never let them see.
+        raise ValueError("transform mode needs a draft to locate changes in")
     contract = contract or build()
     recommendation = strategy_mod.recommend(contract)
     resolved = mode if mode != "auto" else ("evaluate" if draft.strip() else "compose")
@@ -79,7 +84,7 @@ def design(draft: str = "", contract: Contract | None = None,
                                               recommendation["structure"],
                                               result["evaluation"])
 
-    result["variants"] = _review(draft, contract, variants or [])
+    result["variants"] = _review(draft, contract, variants or [], voice_reference)
     result["headline"] = _headline(result)
     return result
 
@@ -98,7 +103,8 @@ def _recommended_index(variants: list[dict]) -> int:
     return 0
 
 
-def _review(draft: str, contract: Contract, variants: list[dict]) -> list[dict]:
+def _review(draft: str, contract: Contract, variants: list[dict],
+            voice_reference: str = "") -> list[dict]:
     """Check every version, each against the right reference.
 
     The recommendation is measured against the writer's draft: "what did
@@ -153,10 +159,16 @@ def _review(draft: str, contract: Contract, variants: list[dict]) -> list[dict]:
                                            compare_to=rec_text,
                                            compare_label="the recommended version",
                                            source_label=source_label)
-        # Voice is always measured against the writer's own words, never
-        # against another rewrite: the question is whether this still
-        # sounds like them, not whether two rewrites resemble each other.
-        entry["voice"] = voice_mod.compare(source, text)
+        # Voice is measured against the writer's own words, never against
+        # another rewrite: the question is whether this still sounds like
+        # them. In a compose session there are no such words — comparing
+        # the recommendation with itself reported every habit held on the
+        # strength of no evidence at all.
+        reference = voice_reference or (draft if has_draft else "")
+        entry["voice"] = (voice_mod.compare(reference, text) if reference.strip() else
+                          {"status": "unknown", "moved": [], "held": [],
+                           "finding": "No sample of the writer's own prose to compare "
+                                      "with: this session composed from nothing."})
         reviewed.append(entry)
 
     reviewed.sort(key=lambda v: v["role"] != "recommended")

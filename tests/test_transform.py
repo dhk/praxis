@@ -209,6 +209,119 @@ def test_a_variant_is_compared_against_the_writer_not_another_rewrite():
         assert variant["voice"]["status"] in ("pass", "review", "unknown")
 
 
+# --- findings from the Copilot review on #34 ---------------------------
+
+def test_a_sentence_span_matches_the_characters_it_claims():
+    """`split_sentences` strips the body but not the offsets, so every
+    sentence after the first claimed a range one character too wide and
+    any edit built from it pointed at the wrong text."""
+    text = "First one here. Second sentence follows. Third and last."
+    for span in spans.sentences(text):
+        assert text[span.start:span.end] == span.text
+
+
+@pytest.mark.parametrize("text,expected", [
+    ("Hi Priya,\n\nPlease approve.", "Please approve."),
+    ("Hi Priya,\nPlease approve.", "Please approve."),      # single newline
+    ("Dear Chen,\nThe report is ready.", "The report is ready."),
+    ("Straight in, no greeting.", "Straight in, no greeting."),
+    ("Hello there body.", "Hello there body."),              # not a greeting
+])
+def test_the_body_starts_below_the_greeting_however_it_is_wrapped(text, expected):
+    """A greeting followed by one newline is the same *paragraph* as the
+    body, so a paragraph-level test put the insertion above the greeting."""
+    assert text[spans.body_start(text):].startswith(expected)
+
+
+def test_an_insertion_inside_protected_content_is_blocked():
+    """Zero-width spans: an insert exactly at a boundary disturbs nothing,
+    but one strictly inside must be caught."""
+    protected = Span(10, 20, "protected!")
+    assert not Span(10, 10, "").overlaps(protected)   # touching the start
+    assert not Span(20, 20, "").overlaps(protected)   # touching the end
+    assert Span(15, 15, "").overlaps(protected)       # inside
+
+
+def test_a_deadline_goes_at_the_end_of_the_request_not_inside_it():
+    """Inserting at the end of the detector match produced "Please approve
+    by 3 p.m. the request."."""
+    draft = "We reviewed the plan. Please approve the request. Thanks."
+    contract = build({**CONTRACT, "intent": "request"})
+    structure = recommend(contract)["structure"]
+    result = transform(draft, contract, structure, evaluate(draft, contract, structure))
+    inserts = [e for e in result["edits"] if e["dimension"] == "actionability"]
+    for edit in inserts:
+        before, after = draft[:edit["at"]], draft[edit["at"]:]
+        assert before.rstrip().endswith("request"), before
+        assert after.startswith("."), after
+
+
+def test_repeated_unsupported_sentences_get_their_own_spans():
+    """Taking the first match every time emitted two edits against one
+    occurrence and none against the other."""
+    draft = "It risks the deadline. Something else entirely. It risks the deadline."
+    contract = build({"stakes": "high", "intent": "inform"})
+    structure = recommend(contract)["structure"]
+    result = transform(draft, contract, structure, evaluate(draft, contract, structure))
+    starts = [e["where"]["start"] for e in result["edits"]
+              if e["dimension"] == "evidence_fit"]
+    assert len(starts) == len(set(starts)), starts
+
+
+def test_conclusion_first_is_defined_once():
+    """A second copy would diverge the first time a structure was added to
+    one set and not the other."""
+    import praxis.evaluate as evaluate_module
+    import praxis.transform as transform_module
+    assert transform_module.CONCLUSION_FIRST is evaluate_module.CONCLUSION_FIRST
+
+
+def test_transform_without_a_draft_is_refused():
+    """Falling back to compose left `mode` saying transform while the
+    result had no edits in it."""
+    with pytest.raises(ValueError, match="needs a draft"):
+        design("", build(CONTRACT), mode="transform")
+
+
+def test_a_compose_variant_is_not_compared_with_itself():
+    """`source` is the recommendation when there is no draft, so voice
+    reported every habit held on the strength of no evidence."""
+    result = design("", build(CONTRACT), [{"text": LONG, "recommended": True}])
+    assert result["variants"][0]["voice"]["status"] == "unknown"
+
+
+def test_a_supplied_voice_reference_reaches_the_variants():
+    other = " ".join(["Ship it now; no delay."] * 40)
+    result = design(LONG, build(CONTRACT), [{"text": other, "recommended": True}],
+                    voice_reference=LONG)
+    assert result["variants"][0]["voice"]["status"] in ("pass", "review")
+    assert result["variants"][0]["voice"]["moved"]
+
+
+def test_an_unlocatable_gap_is_not_reported_as_nothing_to_change():
+    from praxis import brief
+    result = {"strategy": {"title": "BLUF"}, "draft_present": True,
+              "transform": {"edits": [], "blocked": 0, "folded_into": {},
+                            "no_edit_for": ["evidence_fit"]}}
+    answer = brief.answer(result)
+    assert "Nothing to change" not in answer
+    assert "evidence_fit" in answer
+
+
+def test_the_depth_count_in_the_docstring_matches_the_tuple():
+    from praxis import brief
+    assert len(brief.DEPTHS) == 5
+    assert "five depths" in brief.__doc__
+
+
+def test_the_invariant_panel_does_not_claim_byte_identity_for_phrases():
+    """Phrases match across re-wrapping now; the panel said otherwise."""
+    from praxis.render import document
+    html = document(design(DRAFT, build({**CONTRACT, "protected": ["record IDs"]})))
+    assert "byte-for-byte" not in html
+    assert "re-wrapped" in html
+
+
 # --- rendering --------------------------------------------------------
 
 def test_the_page_shows_located_changes():

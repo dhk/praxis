@@ -88,7 +88,20 @@ def unlocatable(text: str, phrases: list[str]) -> list[str]:
 
 
 def sentences(text: str) -> list[Span]:
-    return [Span(start, end, body) for start, end, body in split_sentences(text)]
+    """Sentence spans whose offsets match the text they carry.
+
+    `rules.split_sentences` strips the body but not the offsets, so every
+    sentence after the first claimed a range one character wider than its
+    text — a revise or move edit built from one pointed at the wrong
+    characters. The offsets are trimmed to match.
+    """
+    out: list[Span] = []
+    for start, end, body in split_sentences(text):
+        raw = text[start:end]
+        lead = len(raw) - len(raw.lstrip())
+        trail = len(raw) - len(raw.rstrip())
+        out.append(Span(start + lead, end - trail, body))
+    return out
 
 
 def paragraphs(text: str) -> list[Span]:
@@ -109,9 +122,14 @@ def opening(text: str) -> Span:
     return blocks[0] if blocks else Span(0, 0, "")
 
 
-#: A greeting line, which is a block but not the start of the message.
-SALUTATION = re.compile(r"^\s*(?:hi|hello|hey|dear|good (?:morning|afternoon|evening))\b"
-                        r"[^\n]{0,40}$|^[^\n]{0,30},\s*$", re.IGNORECASE)
+#: A greeting line, which is a line but not the start of the message.
+#:
+#: Neither alternative may contain terminal punctuation. Without that,
+#: "Hello there body." read as a second greeting and the whole message
+#: was skipped past.
+SALUTATION = re.compile(
+    r"^\s*(?:hi|hello|hey|dear|good (?:morning|afternoon|evening))\b[^.!?\n]{0,40}$"
+    r"|^[^.!?\n]{0,30},\s*$", re.IGNORECASE)
 
 
 def body_start(text: str) -> int:
@@ -120,11 +138,25 @@ def body_start(text: str) -> int:
     An insertion point for a bottom line has to clear the greeting.
     Putting the decision above "Hi Priya," is not leading with the
     conclusion, it is writing an envelope.
+
+    Matched line by line rather than paragraph by paragraph: a greeting
+    followed by a single newline is part of the same *paragraph* as the
+    body, so a paragraph-level test saw "Hi Priya,\nPlease approve…",
+    failed to recognise it, and put the insertion above the greeting.
     """
-    blocks = paragraphs(text)
-    if blocks and SALUTATION.match(blocks[0].text.strip()):
-        return blocks[1].start if len(blocks) > 1 else blocks[0].end
-    return blocks[0].start if blocks else 0
+    offset = 0
+    first_body = None
+    for line in text.split("\n"):
+        stripped = line.strip()
+        if stripped:
+            if first_body is None:
+                first_body = offset + (len(line) - len(line.lstrip()))
+                if SALUTATION.match(stripped):
+                    first_body = None          # keep looking, past the greeting
+                else:
+                    return first_body
+        offset += len(line) + 1
+    return 0
 
 
 def carrying(text: str, name: str) -> list[Span]:

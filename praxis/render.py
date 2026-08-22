@@ -386,11 +386,18 @@ def _invariants(result: dict) -> str:
     inv = result.get("invariants")
     if not inv:
         return ""
-    verbatim = _evidence(inv["verbatim"]) or '<span class="muted small">none detected</span>'
+    tokens = _evidence(inv.get("tokens", [])) or '<span class="muted small">none detected</span>'
+    phrases = _evidence(inv.get("phrases", []))
     presence = "".join(f"<li><strong>{escape(k)}</strong>: {_evidence(v[:3])}</li>"
                        for k, v in inv["presence"].items())
+    phrase_block = (f'<h3 style="margin-top:1rem">Phrases you declared</h3>'
+                    '<p class="small muted">Must appear, and may be re-wrapped: a phrase '
+                    'you typed with spaces still counts when the draft breaks the line '
+                    'inside it.</p><p>' + phrases + "</p>") if phrases else ""
     return _section("What may not move", f"""<div class="panel">
-<h3>Verbatim</h3><p class="small muted">Compared byte-for-byte in every variant.</p><p>{verbatim}</p>
+<h3>Figures and references</h3><p class="small muted">Extracted from both versions and
+compared exactly &mdash; a changed figure is not a preserved one.</p><p>{tokens}</p>
+{phrase_block}
 <h3 style="margin-top:1rem">Presence</h3><p class="small muted">Must still be detectable after
 rewriting, in any wording.</p><ul class="tight small">{presence or '<li class="muted">none</li>'}</ul>
 </div>""")

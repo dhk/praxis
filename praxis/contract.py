@@ -93,7 +93,8 @@ FIELDS: tuple[Field, ...] = (
     # --- constraints ---------------------------------------------------
     Field("protected", "constraints",
           "Which exact words, figures, or commitments may not change?", None,
-          "A list of literal strings. Checked byte-identically in every variant.",
+          "A list of literal strings. Each must appear in every variant, allowing "
+          "for different line wrapping; figures and links are compared exactly.",
           kind="list"),
     Field("voice", "constraints", "How much may the writing stop sounding like you?",
           ("preserve", "adapt", "match_exemplar")),

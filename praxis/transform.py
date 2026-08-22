@@ -24,8 +24,10 @@ from .contract import Contract
 from .evaluate import claims
 from .spans import Span
 
-#: Structures that put the conclusion first, mirroring `evaluate`.
-CONCLUSION_FIRST = frozenset({"bluf", "pyramid", "hazard_first", "sia", "prep"})
+#: Imported rather than restated. A copy here would silently disagree
+#: with the evaluator the first time a structure was added to one set and
+#: not the other, and the two decide the same property.
+from .evaluate import CONCLUSION_FIRST  # noqa: E402  (documented import)
 
 KINDS = ("insert", "revise", "move", "cut")
 
@@ -133,15 +135,20 @@ def _outcome_clarity(draft, contract, structure, finding, body, end, gaps):
 
 
 def _actionability(draft, contract, structure, finding, body, end, gaps):
-    asks = spans.locate("ask", draft)
-    if "deadline" not in finding["short"] or not asks:
+    # The end of the *sentence* carrying the request, not the end of the
+    # detector match: `locate("ask")` on "Please approve the request."
+    # ends after "approve", and inserting there splits the request from
+    # its object — "Please approve by 3 p.m. the request."
+    carriers = spans.carrying(draft, "ask")
+    if "deadline" not in finding["short"] or not carriers:
         # No ask to attach it to: `_outcome_clarity` carries the deadline
         # into the sentence it is asking the writer to add.
         return []
+    sentence = carriers[-1]
+    at = sentence.end - 1 if sentence.text.endswith((".", "!", "?")) else sentence.end
     return [_edit("insert", "actionability",
-                  "Add the time by which the action must happen, next to the request "
-                  "itself rather than at the end of the message.",
-                  at=asks[-1].end)]
+                  "Add the time by which the action must happen, at the end of the "
+                  "request itself rather than at the end of the message.", at=at)]
 
 
 def _structural_fit(draft, contract, structure, finding, body, end, gaps):
@@ -183,14 +190,20 @@ def _relationship_fit(draft, contract, structure, finding, body, end, gaps):
 
 def _evidence_fit(draft, contract, structure, finding, body, end, gaps):
     _, unsupported = claims(draft)
+    # Consumed in document order. Taking `found[0]` every time emitted two
+    # edits against the first occurrence of a repeated sentence and none
+    # against the second, so one reported gap pointed at the wrong place.
+    remaining = list(spans.sentences(draft))
     located = []
     for sentence in unsupported:
-        found = [s for s in spans.sentences(draft) if s.text.strip() == sentence.strip()]
-        if found:
-            located.append(_edit("revise", "evidence_fit",
-                                 "Attach the figure, log, or named source that makes this "
-                                 "claim checkable, or state that it is an estimate.",
-                                 where=found[0]))
+        match = next((s for s in remaining if s.text.strip() == sentence.strip()), None)
+        if match is None:
+            continue
+        remaining.remove(match)
+        located.append(_edit("revise", "evidence_fit",
+                             "Attach the figure, log, or named source that makes this "
+                             "claim checkable, or state that it is an estimate.",
+                             where=match))
     return located
 
 
