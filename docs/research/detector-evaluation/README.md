@@ -10,8 +10,13 @@ Read in this order:
    question in [RFC-0005](../../../spec/RFC-0005-detector-measurement.md).
 2. [`handoff-prompt.md`](handoff-prompt.md) — the brief and output format
    as one self-contained prompt for a tool with no repo access.
-3. [`findings/`](findings/) — one file per source, written independently.
-4. `synthesis.md` — written once findings are in: where sources agree,
+3. [`search-prompt-generation.md`](search-prompt-generation.md) — a narrower
+   paste covering only brief questions Q1, Q2, Q3 and Q6: how much of the
+   corpus can be machine-generated, and who assigns the labels. Use it when
+   the recipient is a search tool rather than a researcher; the full brief
+   asks more than a search will usefully answer at once.
+4. [`findings/`](findings/) — one file per source, written independently.
+5. `synthesis.md` — written once findings are in: where sources agree,
    where they conflict and which is more credible, what only one source
    caught, and what remains unanswered.
 
