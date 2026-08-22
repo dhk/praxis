@@ -33,6 +33,21 @@ python -m praxis run examples/concise_scientific_writing/input.md --out artifact
 
 `Validation: pass` should be printed, and `artifacts/demo/` should contain the six files documented in the [artifact contract](docs/architecture.md#artifact-contract).
 
+## Continuous integration
+
+Every pull request runs [`.github/workflows/tests.yml`](.github/workflows/tests.yml):
+
+| Job | What it proves |
+| --- | --- |
+| `pytest (py3.10, py3.13)` | The suite passes on the declared floor and on current Python. |
+| `engine without the mcp extra` | `mcp` is genuinely optional — the engine works, and is tested, in a checkout that never installed a transport. |
+| `documented commands` | Every command the README and CLAUDE.md promise actually runs, and the artifact contract they describe appears. |
+| `viewer builds` | `scripts/build_site.sh` still works, and `praxis/mcp/` has not leaked into the browser bundle. |
+
+CI is not a substitute for running the checks below. It runs what can be
+automated; the browser and artifact checks in the table further down are
+still yours to do.
+
 ## Validate the change you made
 
 Always run the full Python suite:

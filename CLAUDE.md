@@ -2,13 +2,26 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+Engineering rules, product invariants, and working method live in
+[`AGENTS.md`](AGENTS.md) — read it first. Product direction is
+[`VISION.md`](VISION.md) and [`ROADMAP.md`](ROADMAP.md).
+
 ## What this is
 
-praxis is a deterministic, stdlib-only Python harness that rewrites documents through an auditable pass pipeline (`Parse -> Observe -> Recommend -> Transform -> Validate -> Report`), plus a static web viewer for the resulting artifact trail. Every transformation must trace back to an observation; the CLI and the browser UI share one Python implementation — there is no second (e.g. TypeScript) port of the rules anywhere.
+praxis is a deterministic, stdlib-only Python instrument for auditable written communication. It has two layers over one engine, and neither generates prose:
+
+- **The transformation harness** rewrites documents through an auditable pass pipeline (`Parse -> Observe -> Recommend -> Transform -> Validate -> Report`), plus a static web viewer for the resulting artifact trail. Every transformation must trace back to an observation; the CLI and the browser UI share one Python implementation — there is no second (e.g. TypeScript) port of the rules anywhere.
+- **The design layer** (RFC-0003) decides what a message should do for a given reader at a given level of risk, asks only the questions that change that decision, and audits prose written elsewhere against constraints declared in advance. Its interface is an MCP server; prose comes from the client's model, never from praxis.
 
 ## Commands
 
 ```bash
+# Design layer: analyse a communication situation, write an HTML artifact
+python -m praxis design draft.md --set stakes=high --set intent=request --set time_available=low
+python -m praxis design --set intent=repair            # plan before writing; no draft needed
+python -m praxis serve                                  # browse saved sessions on 127.0.0.1:8765
+python -m praxis mcp                                    # MCP server on stdio (needs the `mcp` extra)
+
 # Run the pipeline (writes six JSON/Markdown files to --out)
 python -m praxis run examples/concise_scientific_writing/input.md --out artifacts/demo
 python -m praxis run examples/resume/input.md --pack resume_writing --out artifacts/demo --prompt  # also writes prompt.md
@@ -22,7 +35,7 @@ bash scripts/build_site.sh
 python -m http.server 8000 -d dist   # serve it locally
 ```
 
-There is no lint/typecheck configured. `pyproject.toml` has no runtime dependencies (stdlib only); `pytest` is the sole test dependency.
+There is no lint/typecheck configured. `pyproject.toml` has no runtime dependencies: `praxis/*.py` is stdlib-only because `scripts/build_site.sh` copies that glob into Pyodide unchanged. `pytest` is the test dependency; `mcp` is an optional extra used only by `praxis/mcp/`, which the non-recursive glob never copies into the browser bundle.
 
 ## Architecture
 
@@ -67,3 +80,48 @@ LLM by a human — the pipeline itself never calls one. Reachable via CLI
 ## Testing conventions
 
 `tests/test_harness.py` treats `python -m praxis run` as ground truth: `run_pipeline()`'s in-memory result must always match the files a CLI run writes byte-for-byte (`test_run_pipeline_matches_cli_artifacts`). Any browser-side change should preserve this: the standing bar is that the deployed viewer's output is byte-identical to the CLI's, verified via headless-Chromium end-to-end tests (not checked into the repo; run ad hoc against `dist/` with Playwright when changing `web/`).
+
+## Design layer invariants
+
+- **`design.py`'s `design(draft, contract, variants) -> dict` is the
+  second entry point**, beside `run_pipeline`. The MCP server, the CLI,
+  and the HTML renderer all consume its result and none of them
+  recomputes anything.
+- **The engine never writes prose and never calls a model.** Two tests
+  enforce it (`test_the_engine_never_reaches_a_model_or_the_network`,
+  and the stdlib-only bundle check). The MCP server's job is to make the
+  *client's* model useful, which is why tool descriptions and
+  `next_step` are product surface, not comments.
+- **Rules are data in both layers.** A structure is a `Structure` in
+  `strategy.py`; a shade is a `Shade` in `shading.py`; a contract field
+  is a `Field` in `contract.py`; a detector is a compiled pattern in
+  `signals.py`. If adding one domain rule requires editing the generic
+  machinery, the table is the wrong shape.
+- **`strategy.material_questions` decides what to ask by perturbation**,
+  not by a hand-maintained list of important fields: walk an unknown
+  field across its closed domain, re-run the recommendation, and ask only
+  if the outcomes split. Both directions are enforced by test. This is
+  the layer's central mechanism — do not replace it with a heuristic.
+- **Nothing derived is persisted.** Sessions store the contract, the
+  draft, and the variants; strategy and scorecards are recomputed on
+  every read so a rule change never leaves a stale verdict in a file.
+- **Detectors are conservative.** A miss reports `unknown`, never
+  `absent`. `signals.py` is recall-oriented by design — but recall is not
+  a licence for false positives that mask real findings (see
+  `test_a_polite_request_is_not_an_uncertainty_marker`).
+- **Shading has two references and they must not be merged.**
+  `shading.check(source, variant, …, compare_to=…)` takes invariants from
+  `source` (the writer's draft, so an alternative cannot lose a figure
+  just because the recommendation did) and measures the difference map
+  against `compare_to` (the recommended version, because that is the
+  comparison the writer is making). `design._review` wires this up and
+  sorts the recommendation first; every difference map carries
+  `compared_to` so a delta is never reported without its reference.
+- **Answer first, in every interface.** `brief.py` renders a design
+  result at four depths and the default is `answer`: the shape and what
+  is wrong, two or three sentences, no reasoning. `design_detail` and the
+  CLI's `--why` are the way down. Adding a field to the default MCP reply
+  needs an argument for why the writer cannot proceed without it —
+  `test_a_reply_is_the_answer_not_the_apparatus` fails otherwise. Offer
+  one question, never a list, and report `questions_outstanding` (the
+  true total) rather than the capped display list.

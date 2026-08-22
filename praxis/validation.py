@@ -1,15 +1,23 @@
 import re
 from .models import Transformation
 
+#: Punctuation that ends a sentence rather than a URL. `\S+` is greedy and
+#: swallows it, so `https://x.io/a.` and `https://x.io/a,` read as two
+#: different protected tokens and moving a link to the end of a sentence
+#: looked like losing it.
+URL_TRAILING = ".,;:!?)]}\"'"
+
+
 def protected_tokens(text: str) -> set[str]:
     # The percent sign has its own alternative (tried first) because a trailing
     # `\b` can never match right after `%` when it's followed by whitespace or
     # punctuation (both non-word chars) — requiring it there silently drops the
     # `%` from every "50% " in ordinary prose.
-    patterns = [r"https?://\S+", r"\b\d+(?:\.\d+)?%|\b\d+(?:\.\d+)?\b", r"\[[^\]]+\]", r"\([^)]*\d{4}[^)]*\)"]
+    patterns = [r"\b\d+(?:\.\d+)?%|\b\d+(?:\.\d+)?\b", r"\[[^\]]+\]", r"\([^)]*\d{4}[^)]*\)"]
     tokens: set[str] = set()
     for pattern in patterns:
         tokens.update(re.findall(pattern, text))
+    tokens.update(m.group(0).rstrip(URL_TRAILING) for m in re.finditer(r"https?://\S+", text))
     return tokens
 
 def validate(original: str, final: str) -> dict:

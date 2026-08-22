@@ -30,6 +30,46 @@ def run(input_path: Path, out_dir: Path, pack_id: str = DEFAULT_PACK_ID, prompt:
     print(f"Validation: {result['validation']['status']}")
     print(f"Words: {result['metrics']['before']['words']} -> {result['metrics']['after']['words']}")
 
+def design(input_path: Path | None, out: Path, values: list[str], show_why: bool = False) -> None:
+    """Analyse a communication situation and write the artifact page.
+
+    Answer-first, like the MCP surface: the shape and what is wrong,
+    then how much would still change it, then one question. The
+    reasoning is behind `--why`, because a tool that argues for leading
+    with the conclusion should not open with its own rationale.
+    """
+    from . import brief
+    from .contract import build, ContractError
+    from .design import design as run_design
+    from .render import document
+
+    stated: dict = {}
+    for pair in values:
+        if "=" not in pair:
+            raise SystemExit(f"--set expects field=value, got {pair!r}")
+        field, value = pair.split("=", 1)
+        stated[field.strip()] = value.strip()
+    try:
+        contract = build(stated)
+    except ContractError as exc:
+        raise SystemExit(str(exc)) from exc
+
+    draft = input_path.read_text(encoding="utf-8") if input_path else ""
+    result = run_design(draft, contract)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(document(result), encoding="utf-8")
+
+    print(brief.answer(result))
+    print(brief.progress(result))
+    question = brief.next_question(result)
+    if question:
+        print(f"\n? {question['ask']}  ({'/'.join(question['options'])})")
+        print(f"  --set {question['field']}=…  ({question['changes']})")
+    if show_why:
+        print(f"\n{brief.why(result)}")
+    print(f"\nWrote {out}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run a praxis transformation pipeline.")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -39,6 +79,30 @@ def main() -> None:
     run_p.add_argument("--pack", choices=sorted(PACKS), default=DEFAULT_PACK_ID)
     run_p.add_argument("--prompt", action="store_true",
                        help="also write prompt.md, an LLM review handoff for the flagged items")
+    design_p = sub.add_parser("design", help="analyse a communication situation")
+    design_p.add_argument("input", type=Path, nargs="?",
+                          help="an existing draft; omit to plan before writing")
+    design_p.add_argument("--out", type=Path, default=Path("artifacts/design.html"))
+    design_p.add_argument("--set", dest="values", action="append", default=[],
+                          metavar="FIELD=VALUE",
+                          help="a contract field, repeatable (e.g. --set stakes=high)")
+    design_p.add_argument("--why", action="store_true",
+                          help="also print the reasoning behind the recommendation")
+
+    serve_p = sub.add_parser("serve", help="browse saved design sessions locally")
+    serve_p.add_argument("--host", default="127.0.0.1")
+    serve_p.add_argument("--port", type=int, default=8765)
+
+    sub.add_parser("mcp", help="run the MCP server on stdio")
+
     args = parser.parse_args()
     if args.cmd == "run":
         run(args.input, args.out, args.pack, args.prompt)
+    elif args.cmd == "design":
+        design(args.input, args.out, args.values, args.why)
+    elif args.cmd == "serve":
+        from .mcp.serve import serve as serve_viewer
+        serve_viewer(args.host, args.port)
+    elif args.cmd == "mcp":
+        from .mcp.server import main as run_mcp
+        run_mcp()

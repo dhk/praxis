@@ -7,9 +7,15 @@ dependencies = []
 
 [project.optional-dependencies]
 test = ["pytest>=8.0"]
+# The design layer's MCP surface. Kept optional so the engine itself stays
+# dependency-free and keeps running unchanged inside Pyodide.
+mcp = ["mcp>=1.2"]
+
+[project.scripts]
+praxis = "praxis.cli:main"
 
 [tool.setuptools]
-packages = ["praxis"]
+packages = ["praxis", "praxis.mcp"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
