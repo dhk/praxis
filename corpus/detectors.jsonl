@@ -35,3 +35,13 @@
 {"text": "The queue grew by 3 items.", "present": [], "absent": ["deadline"], "source": "corpus"}
 {"text": "I may look at it later.", "present": ["uncertainty"], "absent": ["ask"], "source": "corpus", "note": "'may' alone is not a request"}
 {"text": "The plan will work.", "present": [], "absent": ["consequential"], "source": "corpus", "note": "not every 'will' is a consequence"}
+{"text": "Leadership confirmation is required by this Friday so the team can finalize the implementation plan.", "present": ["deadline"], "source": "review", "note": "found in real model output re-rendering a message that said 'by Friday'; one determiner between the preposition and the day defeated the pattern"}
+{"text": "Based on the risks and the time remaining, I think we should move the core warehouse tables this quarter and postpone the customer-events pipeline until January.", "absent": ["evidence"], "source": "review", "note": "a real workplace message: 'based on' marks reasoning, and names no measurement, source, or reference for a reader to check"}
+{"text": "We need leadership to confirm this approach by Friday so the team can finalize its implementation plan.", "present": ["ask", "deadline"], "source": "review", "note": "the required action of the message the grid renders; a bare day name after the preposition"}
+{"text": "Confirm the approach by next Tuesday.", "present": ["deadline"], "source": "corpus", "note": "the determiner case, generalised beyond the one found"}
+{"text": "The logs show a spike in failed writes during the close.", "present": ["evidence"], "source": "corpus", "note": "names something the reader can go and check"}
+{"text": "According to the Q3 close report, the discrepancy affected two teams.", "present": ["evidence"], "source": "corpus", "note": "a named source is support; the claim can be traced"}
+{"text": "I think this is probably the right call given everything we know.", "absent": ["evidence"], "source": "corpus", "note": "confidence is not support; nothing here can be checked"}
+{"text": "**Decision required:** confirm the approach before the quarterly close.", "present": ["scan"], "source": "corpus", "note": "bold at the head of a line labels a block a reader can find"}
+{"text": "This is **very** important to the team and changes nothing about scanning.", "absent": ["scan"], "source": "corpus", "note": "mid-sentence emphasis, the boundary MEANINGS['scan'] already named; the pattern crossed it until it was anchored"}
+{"text": "Rebuilding the pipeline before quarter-end may create reporting discrepancies for Finance.", "absent": ["scan"], "source": "corpus", "note": "an unstructured sentence offers a reader nothing to scan"}

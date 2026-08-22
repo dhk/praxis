@@ -808,3 +808,41 @@ def test_the_worker_offers_the_closed_domains_to_the_ui():
     assert catalogue["stakes"]["options"], "a closed domain reached the UI empty"
     assert catalogue["stakes"]["question"] and catalogue["stakes"]["kind"] == "text"
     assert catalogue["genre"]["options"] == [], "a free-text field claimed a domain"
+
+
+# --- defects the mechanism grid found ---------------------------------
+#
+# One source message rendered through six mechanisms by four models
+# (dhk-website, src/data/writing-mechanism-comparison.ts). Facts and the
+# required action were held constant by the prompt, so anything praxis
+# reported as lost was either a real loss or a bad detector. All three of
+# these were bad detectors — and all three were in the detectors that had
+# no labelled example, which is the argument for the corpus in one line.
+
+def test_a_determiner_does_not_hide_a_deadline():
+    from praxis import signals
+    assert signals.find("deadline", "Confirmation is required by this Friday.")
+    assert signals.find("deadline", "Please confirm by Friday.")
+    assert signals.find("deadline", "Confirm by next Tuesday.")
+    # The boundary the pattern already defended stays defended.
+    assert not signals.find("deadline", "The migration slipped by 5 days.")
+    assert not signals.find("deadline", "Revenue rose by 12 percent.")
+
+
+def test_reasoning_is_not_evidence():
+    """'Based on the risks' names nothing a reader could go and check."""
+    from praxis import signals
+    assert not signals.find(
+        "evidence", "Based on the risks and the time remaining, I think we should move."
+    )
+    assert signals.find("evidence", "The logs show a spike in failed writes.")
+    assert signals.find("evidence", "According to the Q3 close report, the gap widened.")
+
+
+def test_mid_sentence_emphasis_is_not_scanning_structure():
+    """MEANINGS['scan'] excluded this in prose while the pattern matched it."""
+    from praxis import signals
+    assert not signals.find("scan", "This is **very** important to the team.")
+    assert signals.find("scan", "**Decision required:** confirm the approach.")
+    assert signals.find("scan", "- **It protects reporting.** The pipeline stays put.")
+    assert signals.find("scan", "## Recommendation")
