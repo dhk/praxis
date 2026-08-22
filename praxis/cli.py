@@ -77,6 +77,31 @@ def design(input_path: Path | None, out: Path, values: list[str], show_why: bool
     print(f"\nWrote {out}")
 
 
+def corpus(show_prompt: bool, detector: str | None, out: Path | None) -> None:
+    """Report how the detectors score, or emit a prompt to widen the corpus.
+
+    The report is the deterministic half praxis is for. The prompt is the
+    other half: everything a person needs to take the problem to a model
+    of their choosing, without praxis and without this repository.
+    """
+    from . import handoff
+    from .measure import report, score
+
+    if not show_prompt:
+        print(report(score(sources=("hand", "review", "corpus", "generated"))))
+        return
+    try:
+        text = handoff.corpus_prompt(detector)
+    except KeyError as exc:
+        raise SystemExit(str(exc).strip('"')) from exc
+    if out:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(text, encoding="utf-8")
+        print(f"Wrote {out}")
+    else:
+        print(text)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run a praxis transformation pipeline.")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -108,6 +133,16 @@ def main() -> None:
 
     sub.add_parser("mcp", help="run the MCP server on stdio")
 
+    corpus_p = sub.add_parser("corpus", help="score the detectors, or commission "
+                                             "work on the corpus")
+    corpus_p.add_argument("--prompt", action="store_true",
+                          help="emit a self-contained prompt for widening the corpus "
+                               "with a model of your choosing")
+    corpus_p.add_argument("--detector", metavar="NAME",
+                          help="commission one signal; omit for the three with the "
+                               "least evidence behind them")
+    corpus_p.add_argument("--out", type=Path, help="write the prompt to a file")
+
     args = parser.parse_args()
     if args.cmd == "run":
         run(args.input, args.out, args.pack, args.prompt)
@@ -116,6 +151,8 @@ def main() -> None:
     elif args.cmd == "serve":
         from .mcp.serve import serve as serve_viewer
         serve_viewer(args.host, args.port)
+    elif args.cmd == "corpus":
+        corpus(args.prompt, args.detector, args.out)
     elif args.cmd == "mcp":
         from .mcp.server import main as run_mcp
         run_mcp()

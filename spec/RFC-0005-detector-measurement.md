@@ -104,6 +104,34 @@ The negatives were added **before** the patterns were touched, so a
 recall fix could not be bought with precision: *"slipped by 5 days"* is a
 duration, not a deadline; *"the plan will work"* is not a consequence.
 
+### 4. Commissioning work on the corpus
+
+praxis measures deterministically. The corpus it measures against is
+written by people, and a person may reasonably want a model's help
+widening it.
+
+`handoff.corpus_prompt()` emits everything needed to do that work
+**without praxis**: what each signal claims to mean, the boundary it must
+not cross, the examples already held, the cases praxis has been caught
+getting wrong, and the exact output format. Reachable as
+`python -m praxis corpus --prompt` or the `corpus_commission` MCP tool.
+
+This is the same boundary `handoff.render_prompt` already keeps for the
+transformation harness: **praxis packages, a person carries, praxis never
+calls.** The engine gains no model dependency, and the recipient needs
+neither this repository nor any trust in it.
+
+The prompt is built so the **category supplies the label** — it asks for
+sentences in a named class rather than asking a model to write text and
+then decide what is in it. It also says plainly that its own output is
+weaker evidence and will be scored separately, because a commission that
+hides that is worth less than one that admits it.
+
+Stating each signal's meaning as data (`signals.MEANINGS`) is a
+precondition rather than a side effect. The corpus measures whether a
+pattern lives up to a claim; until now the claim existed only inside a
+regex comment, which is to say it did not exist.
+
 ## Non-goals
 
 - A benchmark score. The corpus is small and knowingly incomplete; its

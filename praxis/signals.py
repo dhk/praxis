@@ -146,6 +146,50 @@ UPDATE_CADENCE = re.compile(
 #: Structural affordances that let a reader scan instead of read.
 SCAN = re.compile(r"^\s{0,3}(?:[-*+]\s|\d+[.)]\s|#{1,6}\s)|\*\*[^*]+\*\*", re.MULTILINE)
 
+#: What each detector *claims* to find, and the boundary it must not
+#: cross — stated as prose, separately from the pattern that implements
+#: it. The corpus measures whether the pattern lives up to the claim, so
+#: the claim has to exist somewhere other than in a regex comment.
+#:
+#: Every `excludes` here is a boundary that was once crossed. They are
+#: not hypothetical distinctions; they are the bugs, written down.
+MEANINGS = {
+    "ask": ("A direct request for the reader to do something.",
+            "The writer stating what they will do. A rhetorical question."),
+    "deadline": ("A time by which something must happen.",
+                 "A duration or a quantity. 'Slipped by 5 days' is elapsed "
+                 "time, not a time to act by."),
+    "uncertainty": ("Language keeping a claim honest about what is not yet known.",
+                    "Polite modals inside a request. 'Could you approve this' "
+                    "is a request, not a hedge about the facts."),
+    "hedge": ("Language that weakens a request without adding truth.",
+              "Genuine uncertainty about a fact, which belongs to `uncertainty`. "
+              "Removing a hedge costs nothing; removing a caveat changes the claim."),
+    "acknowledgement": ("Recognition of the reader's effort, workload, or position.",
+                        "Sign-offs and pleasantries that acknowledge nothing in particular."),
+    "evidence": ("Visible support for a claim: a measurement, source, or reference.",
+                 "A number that supports nothing — a version, an address, a count "
+                 "of unrelated things."),
+    "owner": ("A named party who will carry an action.",
+              "A passive construction with no actor. 'It will be handled' names nobody."),
+    "verification": ("A mechanism confirming the message was received and acted on.",
+                     "An ask plus a deadline. 'Approve by 3 p.m.' is both of those "
+                     "and neither is a confirmation the reader got the message."),
+    "consequential": ("A claim whose consequences make it worth supporting.",
+                      "A neutral or good outcome. 'The plan will work' is a claim "
+                      "but not a consequence that demands evidence."),
+    "scan": ("Structure that lets a reader find rather than read: headings, "
+             "bullets, short labelled blocks.",
+             "Emphasis used mid-sentence, which changes nothing about scanning."),
+    "escalation": ("A route for the reader when the normal path fails.",
+                   "A courtesy offer to answer questions. 'Let me know if this "
+                   "is not clear' routes nothing and names no failure."),
+    "update_cadence": ("A commitment to say more to the reader, and when.",
+                       "An update with no time named, or an update to a document "
+                       "rather than to the reader. 'I will update the runbook' is "
+                       "neither."),
+}
+
 DETECTORS = {
     "ask": ASK, "deadline": DEADLINE, "uncertainty": UNCERTAINTY, "hedge": HEDGE,
     "acknowledgement": ACKNOWLEDGEMENT, "evidence": EVIDENCE, "owner": OWNER,

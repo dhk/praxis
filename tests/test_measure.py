@@ -115,3 +115,80 @@ def test_the_corpus_file_is_one_json_object_per_line():
     for line in CORPUS.read_text(encoding="utf-8").splitlines():
         if line.strip():
             assert isinstance(json.loads(line), dict)
+
+
+# --- commissioning work on the corpus ---------------------------------
+
+def test_every_detector_states_what_it_means():
+    """The corpus measures whether a pattern lives up to its claim, so the
+    claim has to exist somewhere other than a regex comment."""
+    assert set(signals.MEANINGS) == set(signals.DETECTORS)
+    for name, (means, excludes) in signals.MEANINGS.items():
+        assert means.endswith(".") and excludes.endswith("."), name
+        assert len(means) > 20 and len(excludes) > 20, name
+
+
+def test_the_commission_is_self_contained():
+    """The recipient has no praxis and no repository."""
+    from praxis.handoff import corpus_prompt
+    text = corpus_prompt("escalation")
+    assert "praxis detects communication signals" in text   # explains itself
+    assert "Means:" in text and "Does not mean:" in text     # the claim
+    assert '"source": "generated"' in text                   # the output shape
+    for token in ("signals.py", "import ", "pip install", "praxis/", "RFC-"):
+        assert token not in text, f"leaks repo detail: {token}"
+
+
+def test_the_commission_carries_the_boundary_not_just_the_definition():
+    from praxis.handoff import corpus_prompt
+    text = corpus_prompt("update_cadence")
+    assert "I will update the runbook" in text, "the caught failure is the point"
+    assert "praxis was caught getting these wrong" in text
+
+
+def test_the_commission_asks_for_a_class_not_a_judgment():
+    """The category supplies the label. Asking a model to write text and
+    then decide what is in it measures two models agreeing."""
+    from praxis.handoff import corpus_prompt
+    text = corpus_prompt("ask")
+    assert "The class is the label" in text
+    assert "Do not write text and then decide what is in it" in text
+
+
+def test_the_commission_marks_its_own_output_as_weaker_evidence():
+    from praxis.handoff import corpus_prompt
+    text = corpus_prompt("hedge")
+    assert "share their blind spots" in text
+    assert "never counted toward the headline figure" in text
+
+
+def test_an_unmeasured_signal_is_commissioned_first():
+    """`evidence` and `scan` have no labelled example; they need it most."""
+    from praxis.handoff import corpus_prompt
+    text = corpus_prompt()
+    assert "## Signal: `evidence`" in text
+    assert "## Signal: `scan`" in text
+    assert "entirely unmeasured" in text
+
+
+def test_the_commission_shows_the_examples_it_already_has():
+    """So the recipient does not spend the commission re-writing them."""
+    from praxis.handoff import corpus_prompt
+    text = corpus_prompt("uncertainty")
+    assert "The capacity estimate is preliminary." in text
+    assert "Do not reproduce any example already listed" in text
+
+
+def test_an_unknown_signal_names_the_real_ones():
+    from praxis.handoff import corpus_prompt
+    with pytest.raises(KeyError, match="escalation"):
+        corpus_prompt("eskalation")
+
+
+def test_the_commission_is_prose_and_never_calls_anything():
+    """Same boundary as render_prompt: praxis packages, a person carries."""
+    import inspect
+    from praxis import handoff
+    source = inspect.getsource(handoff)
+    for banned in ("requests", "urllib", "httpx", "anthropic", "openai"):
+        assert banned not in source
