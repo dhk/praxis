@@ -6,6 +6,10 @@ blind spots.
 
 Read in this order:
 
+0. [`specification.md`](specification.md) — what decision this settles,
+   what counts as sufficient evidence, and what we do under each possible
+   outcome. Written before the findings, so they cannot be read to
+   confirm what we already wanted.
 1. [`brief.md`](brief.md) — the questions, each traced to an open
    question in [RFC-0005](../../../spec/RFC-0005-detector-measurement.md).
 2. [`handoff-prompt.md`](handoff-prompt.md) — the brief and output format

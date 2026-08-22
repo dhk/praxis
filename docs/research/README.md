@@ -1,9 +1,19 @@
 # Research
 
 Prior-art passes commissioned to de-risk a design doc before it leaves
-Draft. Each topic gets its own folder: a brief traced to the doc's open
-questions, a handoff prompt for tools without repo access, independent
-findings per source, and a synthesis.
+Draft. Each topic gets its own folder:
+
+| Document | Answers |
+|---|---|
+| `specification.md` | What decision the research settles, what counts as sufficient evidence, and what we do under each possible outcome — written **before** the findings |
+| `brief.md` | The questions, each traced to an open question in the design doc |
+| `handoff-prompt.md` | The brief as one self-contained paste for a source with no repo access |
+| `findings/` | One file per source, written independently |
+| `synthesis.md` | Where sources agree, conflict, or leave a gap |
+
+The specification is the newer half of the convention and exists because a
+brief alone lets findings be read to confirm whatever the author already
+preferred. Fixing the decision rules in advance removes that freedom.
 
 | Topic | Informs | Status |
 |---|---|---|
