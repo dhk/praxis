@@ -1,0 +1,37 @@
+{"text": "Could you approve this by 3 p.m.?", "present": ["ask", "deadline"], "absent": ["uncertainty"], "source": "review", "note": "polite modal read as a hedge"}
+{"text": "May I suggest Thursday?", "present": ["ask"], "absent": ["uncertainty"], "source": "review", "note": "same, first person"}
+{"text": "The capacity estimate is preliminary.", "present": ["uncertainty"], "absent": [], "source": "hand"}
+{"text": "The fix may slip.", "present": ["uncertainty"], "absent": [], "source": "hand"}
+{"text": "We may need help if the migration fails.", "present": ["uncertainty"], "absent": [], "source": "hand"}
+{"text": "Approve by 3 p.m.", "present": ["ask", "deadline"], "absent": ["verification"], "source": "review", "note": "'approve by' counted as a confirmation mechanism"}
+{"text": "Please reply \"approved\" by 3 p.m.", "present": ["ask", "deadline", "verification"], "absent": [], "source": "hand"}
+{"text": "Please confirm receipt.", "present": ["verification"], "absent": [], "source": "hand"}
+{"text": "Let me know if this is not clear.", "present": ["ask"], "absent": ["escalation"], "source": "review", "note": "courtesy satisfied a safety-critical escalation requirement"}
+{"text": "Thanks — let me know if you have questions.", "present": ["ask"], "absent": ["escalation"], "source": "review"}
+{"text": "If this is not resolved by 5, page the on-call.", "present": ["escalation", "deadline"], "absent": [], "source": "hand"}
+{"text": "Otherwise contact the platform team.", "present": ["escalation"], "absent": [], "source": "hand"}
+{"text": "I will update the runbook.", "present": ["owner"], "absent": ["update_cadence"], "source": "review", "note": "no update to the reader and no time"}
+{"text": "I will update the ticket description.", "present": ["owner"], "absent": ["update_cadence"], "source": "review"}
+{"text": "I will update you by email.", "present": ["owner"], "absent": ["update_cadence"], "source": "review", "note": "a preposition is not a time"}
+{"text": "I will update you at length.", "present": ["owner"], "absent": ["update_cadence"], "source": "review"}
+{"text": "I will update you by then.", "present": ["owner"], "absent": ["update_cadence"], "source": "review"}
+{"text": "I will update you every so often.", "present": ["owner"], "absent": ["update_cadence"], "source": "review"}
+{"text": "I will update you on the monitor.", "present": ["owner"], "absent": ["update_cadence"], "source": "review", "note": "'mon' inside 'monitor'"}
+{"text": "I will update you at 5 p.m.", "present": ["owner", "update_cadence"], "absent": [], "source": "hand"}
+{"text": "Next update by 6 p.m.", "present": ["update_cadence"], "absent": [], "source": "hand"}
+{"text": "We will report back by Thursday.", "present": ["update_cadence", "owner"], "absent": [], "source": "hand"}
+{"text": "Updates every hour.", "present": ["update_cadence"], "absent": [], "source": "hand"}
+{"text": "I know the team is already stretched this quarter.", "present": ["acknowledgement"], "absent": [], "source": "review", "note": "object-less 'I know' was missed"}
+{"text": "Thanks for the quick turnaround.", "present": ["acknowledgement"], "absent": [], "source": "hand"}
+{"text": "The migration will fail.", "present": ["consequential"], "absent": ["acknowledgement"], "source": "hand"}
+{"text": "I just wanted to flag something when you get a chance.", "present": ["hedge"], "absent": [], "source": "hand"}
+{"text": "Approve one engineer through Friday.", "present": ["ask"], "absent": ["hedge"], "source": "hand"}
+{"text": "Can I get your approval today?", "present": ["ask", "deadline"], "absent": [], "source": "corpus"}
+{"text": "The release will slip.", "present": ["consequential"], "absent": [], "source": "corpus"}
+{"text": "Please respond by 9.", "present": ["ask", "deadline", "verification"], "absent": [], "source": "corpus"}
+{"text": "The release slipped by 5 days.", "present": ["consequential"], "absent": ["deadline"], "source": "corpus", "note": "'by 5 days' is a duration, not a deadline"}
+{"text": "We need 5 engineers.", "present": [], "absent": ["deadline"], "source": "corpus"}
+{"text": "Costs rose by 12 percent.", "present": [], "absent": ["deadline"], "source": "corpus"}
+{"text": "The queue grew by 3 items.", "present": [], "absent": ["deadline"], "source": "corpus"}
+{"text": "I may look at it later.", "present": ["uncertainty"], "absent": ["ask"], "source": "corpus", "note": "'may' alone is not a request"}
+{"text": "The plan will work.", "present": [], "absent": ["consequential"], "source": "corpus", "note": "not every 'will' is a consequence"}

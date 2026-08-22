@@ -17,7 +17,8 @@ FLAGS = re.IGNORECASE | re.MULTILINE
 
 #: A direct request for the reader to do something.
 ASK = re.compile(
-    r"\b(?:please\s+\w+|can you\b|could you\b|would you\b|approve\b|approves?\b"
+    r"\b(?:please\s+\w+|can you\b|could you\b|would you\b|may I\b|can I\b|could I\b"
+    r"|approve\b|approves?\b"
     r"|sign off\b|confirm\b|reply\b|respond\b|let me (?:know|have)\b"
     r"|need (?:your|a decision)\b|requesting\b|action required\b"
     r"|decision needed\b|asking (?:you|for)\b)", FLAGS)
@@ -28,6 +29,12 @@ DEADLINE = re.compile(
     r"(?:\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)|\d{4}-\d{2}-\d{2}"
     r"|today|tomorrow|tonight|EOD|COB|end of (?:day|week)|next week"
     r"|mon|tue|wed|thu|fri|sat|sun)\w*"
+    # A bare hour is a deadline; a bare quantity is not. Without the
+    # exclusion "slipped by 5 days" and "rose by 12 percent" both read as
+    # times the reader has to act by.
+    r"|\b(?:by|before|no later than)\s+\d{1,2}(?::\d{2})?\b"
+    r"(?!\s*(?:%|percent|days?|weeks?|hours?|minutes?|months?|years?"
+    r"|items?|people|engineers?|points?|places?))"
     r"|\b(?:today|EOD|COB|immediately|right away)\b", FLAGS)
 
 #: Language that keeps a claim honest about what is not yet known.
@@ -84,8 +91,13 @@ VERIFICATION = re.compile(
     r"|please confirm|respond by)", FLAGS)
 
 #: A claim whose consequences make it worth supporting.
+#: The verb list is enumerated rather than `will \w+`, so "the plan will
+#: work" is not a consequence. Recall was measured at zero against the
+#: corpus before `fail`, `slip` and their past forms were added — and this
+#: detector is what decides whether a high-stakes claim needs evidence.
 CONSEQUENTIAL = re.compile(
-    r"\b(?:will (?:cause|delay|break|miss|cost|result)|results? in|leads? to"
+    r"\b(?:will (?:cause|delay|break|miss|cost|result|fail|slip|stall|block)"
+    r"|slipp\w+|stalled|results? in|leads? to"
     r"|risks?\b|impacts?\b|delays?\b|costs?\b|outage|breach|failure|blocked"
     r"|missed?\s+(?:commitment|deadline|target)|revenue|churn|liabilit\w+)", FLAGS)
 
