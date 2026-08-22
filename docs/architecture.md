@@ -1,5 +1,7 @@
 # Architecture
 
+**Type:** guide · [document types](../AGENTS.md#documents)
+
 Praxis is one repository and one Python engine, carrying two layers and exposed through three interfaces: a command-line harness, a static browser viewer, and an MCP server. Keeping them together makes each interface evidence of the engine's real behavior and gives them all the same artifact contract.
 
 The two layers answer different questions and share nothing but the engine's discipline:

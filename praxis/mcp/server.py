@@ -401,6 +401,35 @@ def design_render(session_id: str, include_html: bool = True,
 
 
 @mcp.tool()
+def corpus_commission(detector: str = "") -> dict:
+    """Get a self-contained prompt for widening praxis's detector corpus.
+
+    praxis measures its own detectors deterministically. The corpus those
+    measurements run against is written by people, and a person may want a
+    model's help widening it — so this hands over the entire problem: what
+    each signal claims to mean, the boundary it must not cross, the
+    examples already held, and the cases praxis has been caught failing.
+
+    Give the returned prompt to the writer to use wherever they like. It
+    needs neither praxis nor its repository. **Do not answer it yourself
+    in the same breath as fetching it**: the point of the commission is a
+    second opinion, and one model both issuing and filling it is the
+    circularity the corpus exists to break.
+
+    Omit `detector` for the three signals with the least evidence behind
+    them.
+    """
+    from praxis import handoff
+    try:
+        return {"prompt": handoff.corpus_prompt(detector or None),
+                "next_step": "Give this to the writer. Answers come back as JSONL "
+                             "lines appended to corpus/detectors.jsonl with "
+                             "source 'generated', which is scored separately."}
+    except KeyError as exc:
+        return {"error": exc.args[0]}
+
+
+@mcp.tool()
 def design_list() -> dict:
     """List saved design sessions, most recently touched first."""
     return {"sessions": store.listing(), "workspace": str(store.home())}

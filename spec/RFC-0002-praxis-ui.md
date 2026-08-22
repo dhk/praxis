@@ -1,5 +1,7 @@
 # RFC-0002: Praxis UI
 
+**Type:** RFC · [document types](../AGENTS.md#documents)
+
 Status: Draft
 Version: 0.1
 Depends on: RFC-0001

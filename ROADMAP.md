@@ -1,5 +1,7 @@
 # Praxis Roadmap
 
+**Type:** charter · [document types](AGENTS.md#documents)
+
 Every wave must leave praxis in a state a writer can actually use. A
 wave that ends in scaffolding has not ended.
 

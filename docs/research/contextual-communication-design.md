@@ -1,4 +1,6 @@
 # Contextual Communication Design
+
+**Type:** research results · [document types](../../AGENTS.md#documents)
 ## Complete research brief: frameworks, products, evidence, and the shading mechanic
 
 ## Purpose

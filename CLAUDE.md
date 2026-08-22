@@ -1,10 +1,18 @@
 # CLAUDE.md
 
+**Type:** guide · [document types](AGENTS.md#documents)
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 Engineering rules, product invariants, and working method live in
 [`AGENTS.md`](AGENTS.md) — read it first. Product direction is
 [`VISION.md`](VISION.md) and [`ROADMAP.md`](ROADMAP.md).
+
+Before writing any document, read [`AGENTS.md` § Documents](AGENTS.md#documents):
+every document is one of eight enumerated types and declares which. Both a
+document and a type have to earn their keep — the test for a document is
+whether someone would decide worse without it, and the test for a new type
+is whether it can name what goes wrong in its absence.
 
 ## What this is
 
@@ -21,6 +29,8 @@ python -m praxis design draft.md --set stakes=high --set intent=request --set ti
 python -m praxis design draft.md --transform --set intent=request   # located changes, not a critique
 python -m praxis design draft.md --transform --voice past-emails.md # which habits the draft keeps
 python -m praxis design --set intent=repair            # plan before writing; no draft needed
+python -m praxis corpus                                 # score the detectors against corpus/
+python -m praxis corpus --prompt --detector escalation   # commission corpus work elsewhere
 python -m praxis serve                                  # browse saved sessions on 127.0.0.1:8765
 python -m praxis mcp                                    # MCP server on stdio (needs the `mcp` extra)
 
@@ -147,3 +157,14 @@ LLM by a human — the pipeline itself never calls one. Reachable via CLI
   overlap at email lengths (the table is in RFC-0004). `voice.compare`
   never returns a `gap` — a dropped habit may be exactly what the rewrite
   was for.
+- **A detector's claim is data, not a comment** (`signals.MEANINGS`). The
+  corpus measures whether a pattern lives up to its stated meaning, so the
+  meaning has to be somewhere a person can read without the regex.
+- **praxis packages prompts and never sends them.** `handoff.render_prompt`
+  does it for a transformation run, `handoff.corpus_prompt` for the
+  detector corpus. Both hand a person everything a model would need and
+  stop there; adding a call would end the property the whole engine is
+  built on.
+- **Corpus examples carry provenance and `generated` never counts alone.**
+  The detectors were written by a model, so a corpus written by one shares
+  their blind spots. `praxis.measure.TRUSTED` is the headline set.

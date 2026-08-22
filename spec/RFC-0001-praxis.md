@@ -1,5 +1,7 @@
 # RFC-0001: praxis
 
+**Type:** RFC · [document types](../AGENTS.md#documents)
+
 Status: Draft  
 Version: 0.1
 

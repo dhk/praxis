@@ -1,5 +1,7 @@
 # RFC-0004: Transform mode and voice
 
+**Type:** RFC · [document types](../AGENTS.md#documents)
+
 Status: Draft
 Version: 0.1
 Depends on: RFC-0003

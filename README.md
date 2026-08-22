@@ -1,5 +1,7 @@
 # praxis
 
+**Type:** guide · [document types](AGENTS.md#documents)
+
 > An early reference implementation for transparent, auditable written communication.
 
 Praxis turns document work into an inspectable workflow. Instead of returning only a rewritten document, it records what it observed, what it recommended, which changes it made, and whether protected content survived. That trail makes a transformation reviewable, testable, and portable between the command line and the browser.
@@ -80,6 +82,31 @@ python -m praxis run examples/claude_skill/SKILL.md --pack claude_skill_authorin
 ```
 
 The `claude_skill_authoring` pack encodes corpus-measured practices from the [skill-map](https://github.com/dhk/skill-map) study of roughly 5,000 crawled Claude skills.
+
+## Measuring the detectors
+
+Every finding praxis reports rests on a handful of regular expressions.
+`corpus/detectors.jsonl` holds examples with known answers, and
+
+```bash
+python -m praxis corpus
+```
+
+scores each detector against them — precision, recall, and the specific
+examples it gets wrong. A detector with no labelled example reports
+`unmeasured`, never `0.000`.
+
+If you would rather widen the corpus with a model than by hand:
+
+```bash
+python -m praxis corpus --prompt --detector escalation
+```
+
+emits a self-contained prompt carrying what the signal claims to mean, the
+boundary it must not cross, the examples already held, and the cases
+praxis has been caught getting wrong. Take it anywhere. praxis writes the
+prompt and never sends it — the same boundary the transformation harness
+keeps with `--prompt`.
 
 ## Communication design
 
