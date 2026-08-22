@@ -63,8 +63,10 @@ product.
 | Invariant audit | Verbatim content, commitments, and markers of uncertainty — checked per version against the writer's draft, each violation naming its reference |
 | Priced alternatives | The recommendation is submitted with the alternatives and listed first; every alternative's difference map is measured **against the recommendation**, so the writer sees what choosing it costs and what it holds |
 | Artifact | One self-contained, theme-aware HTML page; no scripts, no network |
-| MCP server | `design_open`, `design_update`, `design_shade`, `design_render`, `design_list`, `design_schema` |
-| CLI | `praxis design`, `praxis serve`, `praxis mcp` |
+| MCP server | Answer-first and conversational: `design_open`, `design_update`, `design_detail`, `design_shade`, `design_render`, `design_list`, `design_schema` |
+| Progressive disclosure | Every reply is the answer, the progress, and one question. Reasoning, full findings, and the contract are one `design_detail` away and never volunteered |
+| Knowing when to stop | The progress line counts only questions that would still change the answer, so praxis can say "nothing else you could tell me would change it" |
+| CLI | `praxis design` (answer-first, `--why` to drill in), `praxis serve`, `praxis mcp` |
 
 ### Deliberately out of scope
 
@@ -92,6 +94,10 @@ product.
       and every delta names its reference.
 - [x] A first-run walkthrough that takes a real message end to end
       (`examples/decision_request/`).
+- [x] A default reply is the answer and nothing else — under 250 tokens,
+      where the first version was about 900.
+- [x] Outstanding questions decrease as they are answered, and reaching
+      zero is stated rather than left silent.
 - [ ] Tool descriptions read as instructions a client model follows
       without a system prompt.
 

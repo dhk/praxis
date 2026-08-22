@@ -39,11 +39,17 @@ def design(draft: str = "", contract: Contract | None = None,
     """
     contract = contract or build()
     recommendation = strategy_mod.recommend(contract)
+    # Every material question, then the few worth showing. Reporting the
+    # capped list as the total made the count sit at three however many
+    # the writer answered — progress that never moves reads as no
+    # progress at all.
+    outstanding = strategy_mod.material_questions(contract, limit=len(strategy_mod.SELECTORS))
     result = {
         "schema_version": SCHEMA_VERSION,
         "contract": contract.to_dict(),
         "strategy": recommendation,
-        "questions": strategy_mod.material_questions(contract),
+        "questions": outstanding[:3],
+        "questions_outstanding": len(outstanding),
         "do_not_ask": strategy_mod.settled_fields(contract),
         "shading": shading.candidates(contract),
         "draft_present": bool(draft.strip()),

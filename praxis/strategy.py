@@ -240,11 +240,14 @@ def outcome(contract: Contract) -> str:
     """
     from .shading import candidates  # local: shading reads contracts, not strategies
 
-    structure = recommend(contract)["structure"]
+    from .shading import BY_ID as SHADE_BY_ID
+
+    structure = BY_ID[recommend(contract)["structure"]].title
     shades = candidates(contract)
     if not shades["offer"]:
         return f"{structure}, one version"
-    return f"{structure}, shaded {'/'.join(s['shade'] for s in shades['shades'])}"
+    named = " or ".join(SHADE_BY_ID[s["shade"]].title for s in shades["shades"])
+    return f"{structure}, offering {named}"
 
 
 def material_questions(contract: Contract, limit: int = 3) -> list[dict]:

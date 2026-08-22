@@ -103,6 +103,7 @@ an audit.
 10. **Artifacts at every step, and they must be visual where comparison is the point.**
 11. **Usable vertical slices** — every wave ends in something a writer can use.
 12. **Local-first**: no accounts, no backend, no document upload, no telemetry.
+13. **Answer first, detail on request** — including in praxis's own interfaces.
 
 This list is mirrored in [`AGENTS.md`](AGENTS.md) — same items, same
 order; change both together.

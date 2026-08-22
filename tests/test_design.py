@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from praxis import shading, signals
+from praxis import brief, shading, signals
 from praxis.contract import SELECTORS, Contract, ContractError, build, schema
 from praxis.design import design
 from praxis.evaluate import GAP, PASS, UNKNOWN, evaluate
@@ -403,6 +403,79 @@ def test_a_violation_names_the_reference_it_was_measured_against():
     for violation in alternative["check"]["violations"]:
         assert "your draft" in violation["detail"], violation["detail"]
     assert alternative["check"]["difference_map"]["compared_to"] == "the recommended version"
+
+
+# --- answering at the depth that was asked for -------------------------
+
+def test_the_answer_leads_with_the_conclusion_and_omits_the_reasoning():
+    result = design(DRAFT, build({"intent": "request", "stakes": "high"}))
+    text = brief.answer(result)
+    assert text.startswith("Fix")
+    assert "because" not in text and "favours" not in text
+    assert len(text) < 260
+
+
+def test_the_answer_is_a_shape_when_there_is_no_draft():
+    text = brief.answer(design("", build({"intent": "teach", "prior_knowledge": "none"})))
+    assert text.startswith("Write it concept–mechanism–example")
+
+
+def test_the_answer_agrees_with_itself_grammatically():
+    """'Fix 1 things' is the kind of seam that makes a tool feel unfinished."""
+    one = design("Please approve this by 3 p.m.", build({"intent": "request", "stakes": "high"}))
+    assert "1 things" not in brief.answer(one)
+
+
+def test_outstanding_questions_actually_decrease_as_they_are_answered():
+    """Progress that never moves reads as no progress.
+
+    The displayed list is capped at three; the count must be the true
+    total, or answering a question leaves it stubbornly at three.
+    """
+    counts = []
+    values = {}
+    for field, value in [("intent", "request"), ("stakes", "high"), ("medium", "email"),
+                         ("time_available", "low"), ("authority", "approves")]:
+        values[field] = value
+        counts.append(design(DRAFT, build(dict(values)))["questions_outstanding"])
+    assert counts == sorted(counts, reverse=True), counts
+    assert counts[-1] < counts[0]
+
+
+def test_progress_states_completion_rather_than_going_quiet():
+    full = {"intent": "request", "stakes": "high", "medium": "email", "urgency": "today",
+            "time_available": "low", "authority": "approves", "prior_knowledge": "partial",
+            "sensitivity": "high", "power_distance": "upward", "voice": "preserve"}
+    line = brief.progress(design(DRAFT, build(full)))
+    assert "nothing else you could tell me would change it" in line
+
+
+def test_only_one_question_is_surfaced_at_a_time():
+    result = design(DRAFT, build())
+    assert result["questions_outstanding"] > 1
+    assert isinstance(brief.next_question(result), dict)
+
+
+def test_a_widely_splitting_question_is_summarised_not_enumerated():
+    """`intent` splits eleven ways; listing them all buries the point."""
+    changes = brief.next_question(design(DRAFT, build()))["changes"]
+    assert "decides the shape outright" in changes
+    assert len(changes) < 90
+
+
+def test_a_narrow_split_still_shows_what_it_decides():
+    result = design(DRAFT, build({"intent": "request", "medium": "email"}))
+    question = next(q for q in [brief.next_question(result)] if q)
+    assert "→" in question["changes"]
+
+
+def test_every_depth_renders():
+    result = design(DRAFT, build({"intent": "request", "stakes": "high"}),
+                    [{"shade": "decisive", "text": "Approve by 3 p.m."}])
+    for depth in brief.DEPTHS:
+        assert brief.at_depth(result, depth).strip()
+    with pytest.raises(KeyError):
+        brief.at_depth(result, "everything")
 
 
 # --- rendering --------------------------------------------------------

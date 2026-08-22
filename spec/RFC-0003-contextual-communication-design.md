@@ -171,10 +171,40 @@ The server is the primary interface, not an afterthought.
 | `design_list` | Saved sessions |
 | `design_schema` | The fields, structures, and shades this server knows |
 
+| `design_detail` | The reasoning, the full findings, or the contract — on request only |
+
 Every response carries `next_step`, which walks the client through
 `open → ask → write → check → render` without needing a system prompt.
 Tool descriptions and `next_step` are the only instructions the client
 model receives; they are product surface, not comments.
+
+### Answer first, and nobody has to finish
+
+The first version of this surface returned every dimension, the
+runner-up, the contract and the invariants on every call — about 900
+tokens to say something that fits in a sentence, from a layer whose
+entire argument is leading with the conclusion and asking only what
+changes it. That was advice the interface ignored.
+
+Each reply now carries four things and stops: the **answer** (the shape,
+and what is wrong with the draft), the **progress**, **one question** if
+one is worth asking, and where to drill in. `design_detail` serves `why`,
+`findings`, `contract`, and `questions`. Roughly 160–250 tokens instead
+of 900.
+
+There is no interview to complete. The first call answers immediately at
+whatever confidence the situation supports and says which; every reply
+offers exactly one further question. Stopping is a decision made with the
+cost visible rather than a corner the writer is backed into.
+
+The progress line counts questions that would still *change* the answer,
+not fields left blank — which is what lets praxis say **"nothing else you
+could tell me would change it."** A tool that can tell you when you are
+finished is unusual, and it falls straight out of the perturbation
+machinery: if every remaining unknown lands on the same strategy, there
+is nothing left to ask. `design()` reports `questions_outstanding` as the
+true total, because the displayed list is capped at three and a count
+frozen at three reads as no progress at all.
 
 The division of labour is the architecture: **praxis decides and audits,
 the client writes.** It is what makes the layer free to run, and it is

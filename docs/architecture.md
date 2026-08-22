@@ -80,6 +80,7 @@ flowchart LR
 | `praxis/evaluate.py` | Ten fit dimensions, each with evidence and an honest `unknown`. | Reports; it never rewrites and emits no score. |
 | `praxis/signals.py` | Conservative text detectors shared by evaluation and shading. | Recall-oriented: a miss is `unknown`, never `absent`. |
 | `praxis/design.py` | Orchestrates one design session and returns its result. | The single boundary all three interfaces consume. |
+| `praxis/brief.py` | Renders a design result as text at four depths, shallowest first. | Presentation only; it decides how much to say, never what is true. |
 | `praxis/render.py` | Renders a design result as a self-contained HTML page. | Pure string building; it can only show what the engine computed. |
 | `praxis/mcp/server.py` | The MCP tool surface and the loop it walks a client through. | The only place a client model receives instructions. |
 | `praxis/mcp/store.py` | Session persistence: contract, draft, variants. | Stores nothing derived, so no verdict can go stale. |
@@ -169,6 +170,16 @@ description.
   `test_every_asked_question_actually_changes_the_strategy` and
   `test_no_settled_field_would_have_changed_the_strategy` check both
   directions.
+- **The default reply is the answer, and nothing else.** `design()`
+  computes everything; the interfaces decide how much to show, which is
+  the same "presentation belongs to the interface" boundary the artifact
+  contract already relies on. `brief.py` renders four depths — `answer`,
+  `why`, `findings`, `contract` — and the MCP reply carries only the
+  first, plus a progress line, one question, and where to drill in.
+  `brief.progress` counts questions that would still *change* the answer
+  rather than fields left blank, so it can say when nothing further would
+  help; `design()` supplies `questions_outstanding` as the true total
+  because the displayed list is capped at three.
 - **Shading takes two references, and merging them loses the comparison
   the writer needs.** Invariants come from the writer's draft; the
   difference map measures an alternative against the *recommended

@@ -11,11 +11,38 @@ what makes the layer cost nothing per run: the only inference is the
 inference the conversation was already paying for. It is also what keeps
 it honest — a rewriter that grades its own rewriting is not an audit.
 
-The intended loop, which `next_step` in every response nudges the client
-along:
+## Answer first, then as much as they ask for
 
-    open  →  answer the questions that matter  →  write the recommended
-          version and any offered alternatives  →  submit them all for
+Every tool here returns the answer and stops. Not the reasoning, not the
+runner-up, not the ten dimensions — those are one call away and most
+people never need them. A writer asking "is this ready to send" wants a
+sentence, and a tool that replies with a page of structure has answered
+a question they did not ask.
+
+This is not a style preference. Praxis's entire argument is leading with
+the conclusion, asking only what changes it, and letting the reader drill
+in. A version of it that opened with a wall of JSON would be advice its
+own interface ignored.
+
+So each reply carries four things: the **answer**, the **progress** (how
+much would still change it, and — more useful — how much would not), **one
+question** if one is worth asking, and where to drill in. Nothing is
+hidden, but nothing is volunteered either.
+
+## Nobody has to finish
+
+There is no interview to complete. The first call answers immediately at
+whatever confidence the situation supports, and says so. Every reply
+offers exactly one more question and reports what is still outstanding,
+so stopping is a decision the writer makes with the cost in front of them
+rather than a corner they are backed into. Good enough is genuinely good
+enough, and praxis is unusual in being able to say when *nothing* further
+would help.
+
+The loop, which `next_step` nudges the client along:
+
+    open  →  answer a question or two, or don't  →  write the recommended
+          version and any offered alternatives  →  submit them for
           checking  →  render the page
 
 The recommendation goes in with the alternatives, marked. It is the
@@ -23,18 +50,13 @@ reference every alternative is priced against: a writer choosing between
 versions is asking how each differs from the one they would otherwise
 send, not how each differs from a draft they have already decided to
 replace.
-
-`design_render` returns a complete self-contained HTML page. A client
-that can publish artifacts should publish it: the contract, the
-scorecard, and two variants with their difference maps are a comparison,
-and no amount of chat prose substitutes for seeing them side by side.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from praxis import render
+from praxis import brief, render
 from praxis.contract import ContractError, schema
 from praxis.shading import SHADES
 from praxis.strategy import STRUCTURES
@@ -51,11 +73,17 @@ Use it when the writing task has a real audience and real consequences —
 a decision request, an incident update, bad news to a customer, a message
 to a strained colleague. Skip it for casual or purely mechanical text.
 
-Work the loop: design_open, then ask only the questions design_open returns
-(it has already computed which ones change the answer — do not run your own
-intake interview), then write, then design_shade, then design_render and
-publish the page as an artifact."""
+**Relay the answer, not the apparatus.** Every reply gives you the answer,
+one question worth asking, and what is still outstanding. Pass those on
+roughly as they come. Do not fetch the reasoning, the full findings, or the
+contract unless the writer asks why — design_detail exists for that moment
+and not before. Never run your own intake interview: praxis has already
+computed which questions change the answer, and asking beyond them wastes
+the writer's attention on things that change nothing.
 
+The writer decides when to stop. Offer the next question; do not press it.
+
+"""
 
 def _server():
     """Build the server object across mcp 1.x (FastMCP) and 2.x (MCPServer)."""
@@ -70,75 +98,58 @@ def _server():
 mcp = _server()
 
 
-def _view(record: dict) -> dict:
-    """The compact response shape. Deliberately not the whole result.
+def _reply(record: dict, note: str = "") -> dict:
+    """The answer, and only the answer.
 
-    A design result is a page's worth of structure. Returning all of it
-    on every call would spend the conversation's context on things the
-    model does not need to reason about — that is what design_render and
-    the artifact are for. What comes back here is what changes the
-    model's next move: the strategy, the questions, the gaps, and the
-    constraints on writing.
+    Four fields. The reasoning, the full scorecard, and the contract are
+    each one `design_detail` call away — deliberately not included here,
+    because a writer asking whether a message is ready to send wants a
+    sentence, and volunteering a page of structure answers a question
+    they did not ask.
     """
     result = store.result_for(record)
-    strategy = result["strategy"]
     out: dict[str, Any] = {
         "session": record["id"],
-        "headline": result["headline"],
-        "strategy": {
-            "structure": strategy["structure"], "title": strategy["title"],
-            "sequence": strategy["sequence"], "because": strategy["because"],
-            "confidence": strategy["confidence"], "requirements": strategy["requirements"],
-            "evidence_standard": strategy["evidence_standard"],
-        },
-        "ask_the_writer": [
-            {"field": q["field"], "question": q["question"], "options": q["options"],
-             "status": q["status"], "decides_between": q["decides_between"]}
-            for q in result["questions"]],
-        "do_not_ask": result["do_not_ask"],
-        "assumptions_to_confirm": result["contract"]["assumptions"],
-        "shading": result["shading"],
+        "answer": brief.answer(result),
+        "progress": brief.progress(result),
     }
-    if "evaluation" in result:
-        out["gaps"] = [{"dimension": d["dimension"], "finding": d["finding"],
-                        "fix": d["recommendation"]}
-                       for d in result["evaluation"]["dimensions"] if d["status"] == "gap"]
-        out["verdict"] = result["evaluation"]["verdict"]
-        out["invariants"] = result["invariants"]
+    question = brief.next_question(result)
+    if question:
+        out["next_question"] = question
     if result["variants"]:
-        out["variants"] = [{
-            "label": v["label"], "shade": v["shade"], "role": v["role"],
+        out["versions"] = [{
+            "label": v["label"], "role": v["role"],
             "status": v["check"]["status"] if v["check"] else "baseline",
             "compared_to": v["check"]["difference_map"]["compared_to"] if v["check"] else None,
-            "violations": v["check"]["violations"] if v["check"] else [],
             "changed": v["check"]["difference_map"]["moved"] if v["check"] else [],
             "held": v["check"]["difference_map"]["held"] if v["check"] else [],
-            "shade_fidelity": v["check"]["difference_map"]["shade_fidelity"] if v["check"] else [],
+            "problems": [x["detail"] for x in v["check"]["violations"]] if v["check"] else [],
         } for v in result["variants"]]
     out["next_step"] = _next_step(result)
+    out["drill_in"] = "design_detail(session, 'why'|'findings'|'contract'|'questions') if asked"
+    if note:
+        out["note"] = note
     return out
 
 
 def _next_step(result: dict) -> str:
-    if result["questions"]:
-        fields = ", ".join(q["field"] for q in result["questions"])
-        return (f"Ask the writer about: {fields}. These are the only unknowns that move the "
-                "strategy; do not run a broader intake interview. Then call design_update "
-                "with their answers.")
-    if not result["draft_present"]:
-        return ("The strategy is settled. Write the draft to the recommended sequence, then "
-                "call design_update with it.")
+    """One line telling the client what to do, never what to ask beyond one."""
+    if not result["draft_present"] and not result["variants"]:
+        return ("Write the draft to that shape, then send it back with design_update. "
+                "Answering the question first is optional.")
     gaps = result.get("evaluation", {}).get("priority", [])
     if gaps and not result["variants"]:
-        return (f"Close these gaps first: {', '.join(gaps)}. Then, if shading is offered, write "
-                "the recommended version plus the offered shades and submit them all to "
-                "design_shade, with the recommended one marked `recommended: true`.")
+        if result["shading"]["offer"]:
+            shades = ", ".join(s["shade"] for s in result["shading"]["shades"])
+            return (f"Fix those, then write the recommended version plus these alternatives: "
+                    f"{shades}. Submit all of them to design_shade with the recommended one "
+                    "marked `recommended: true`.")
+        return "Fix those and send the revision back with design_update."
     if result["shading"]["offer"] and not result["variants"]:
         shades = ", ".join(s["shade"] for s in result["shading"]["shades"])
-        return (f"Write the recommended version plus these shades: {shades}. Keep every verbatim "
-                "invariant byte-identical. Submit all of them to design_shade, including the "
-                "recommended one marked `recommended: true` — it is what the alternatives are "
-                "compared against.")
+        return (f"Write the recommended version plus these alternatives: {shades}. Keep every "
+                "verbatim invariant byte-identical. Submit them all to design_shade with the "
+                "recommended one marked `recommended: true`.")
     if result["variants"]:
         failed = [v["label"] for v in result["variants"]
                   if v["check"] and v["check"]["status"] == "fail"]
@@ -149,33 +160,50 @@ def _next_step(result: dict) -> str:
 
 
 @mcp.tool()
-def design_open(title: str, draft: str = "", stated: dict | None = None,
+def design_open(text: str = "", title: str = "", stated: dict | None = None,
                 inferred: dict | None = None) -> dict:
-    """Open a communication-design session and get the recommended strategy.
+    """Start here. Paste a draft, or describe the situation, and get an answer.
 
-    Use this at the start of any writing task with a real reader and real
-    consequences. It returns the recommended structure with its reasons,
-    the (at most three) questions whose answers would change that
-    recommendation, and — if a draft is supplied — where the draft falls
-    short of what the contract requires.
+    Answers immediately — there is no interview to get through first. If
+    the situation is barely described the answer says so and offers one
+    question; if it is well described it may offer none, which is praxis
+    telling you that nothing further would change its advice.
 
-    `stated` is what the writer told you. `inferred` is what you concluded
-    on your own; keep the two apart, because an inference that changes the
-    strategy comes back as an assumption for the writer to confirm rather
-    than a fact. Call design_schema for the field names and their values.
+    `text` is the draft, or empty when composing. `stated` is what the
+    writer told you; `inferred` is what you concluded yourself. Keep the
+    two apart — an inference that changes the recommendation comes back
+    as a question rather than passing as fact. See design_schema for the
+    field names.
+
+    Relay the `answer` and `progress`. Offer `next_question` once. Do not
+    ask anything beyond it.
     """
-    record = store.blank(title, draft)
+    record = store.blank(title or _title_from(text), text)
     return _update(record, stated, inferred, None)
+
+
+def _title_from(text: str) -> str:
+    """Name the session from the writing itself, so nobody is asked for one.
+
+    Requires a real sentence: a salutation is the first line of most
+    messages and "Hi Priya" names nothing.
+    """
+    for line in text.splitlines():
+        line = line.strip().lstrip("#").strip()
+        if len(line.split()) >= 5:
+            return line[:60]
+    return "untitled message"
 
 
 @mcp.tool()
 def design_update(session_id: str, stated: dict | None = None,
                   inferred: dict | None = None, draft: str = "") -> dict:
-    """Record answers, corrections, or a new draft, and re-run the analysis.
+    """Record an answer, a correction, or a new draft, and get a fresh answer.
 
-    Everything derived — the strategy, the questions, the scorecard — is
-    recomputed from scratch, so a corrected assumption changes the
-    recommendation immediately rather than leaving a stale verdict behind.
+    Everything is recomputed, so a corrected guess changes the advice
+    immediately rather than leaving a stale verdict behind. Use this for
+    each question the writer chooses to answer — and simply stop calling
+    it when they have had enough.
     """
     return _update(store.load(session_id), stated, inferred, draft or None)
 
@@ -191,7 +219,34 @@ def _update(record: dict, stated: dict | None, inferred: dict | None, draft: str
     except ContractError as exc:
         return {"error": str(exc), "hint": "call design_schema for the allowed values"}
     store.save(record)
-    return _view(record)
+    return _reply(record)
+
+
+@mcp.tool()
+def design_detail(session_id: str, depth: str = "why") -> dict:
+    """Drill into the answer — call this only when the writer asks.
+
+    - `why` — which contract values chose that shape, what came second,
+      and what this level of stakes obliges.
+    - `findings` — every dimension, including the passes and the honest
+      unknowns, not just the gaps.
+    - `contract` — the situation as praxis has it, marked for what was
+      stated and what was guessed.
+    - `questions` — every remaining question at once, for someone who
+      would rather answer them all than be offered one at a time.
+    """
+    record = store.load(session_id)
+    result = store.result_for(record)
+    if depth == "questions":
+        return {"session": record["id"],
+                "questions": [brief.next_question({**result, "questions": [q]})
+                              for q in result["questions"]],
+                "not_worth_asking": result["do_not_ask"],
+                "note": "Unknown, but every possible answer lands on the same advice."}
+    try:
+        return {"session": record["id"], "depth": depth, "detail": brief.at_depth(result, depth)}
+    except KeyError as exc:
+        return {"error": str(exc), "available": list(brief.DEPTHS) + ["questions"]}
 
 
 @mcp.tool()
@@ -223,7 +278,7 @@ def design_shade(session_id: str, variants: list[dict]) -> dict:
          "recommended": bool(v.get("recommended"))}
         for v in variants]
     store.save(record)
-    return _view(record)
+    return _reply(record)
 
 
 @mcp.tool()

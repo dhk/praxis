@@ -68,23 +68,108 @@ def test_corrupt_session_files_do_not_break_the_listing():
 mcp_server = pytest.importorskip("praxis.mcp.server", reason="needs the `mcp` extra")
 
 
+DRAFT = ("We reviewed the release plan and identified a risk in the data-migration step. "
+         "We may need additional engineering support, and I would like to discuss the "
+         "implications in our next meeting.")
+
+
+def test_the_first_call_answers_instead_of_interviewing():
+    """There is no intake to get through. Even with nothing stated, the
+    first call answers — at whatever confidence the situation supports,
+    and says which."""
+    opened = mcp_server.design_open(DRAFT)
+    assert opened["answer"]
+    assert "confidence" in opened["progress"]
+
+
+def test_a_reply_is_the_answer_not_the_apparatus():
+    """A regression guard on the thing this interface is for.
+
+    An earlier version returned every dimension, the runner-up, the full
+    contract and the invariants on every call — roughly 900 tokens to say
+    something that fits in a sentence, from a tool whose whole argument is
+    leading with the conclusion.
+    """
+    opened = mcp_server.design_open(DRAFT, stated={"intent": "request", "stakes": "high"})
+    assert len(json.dumps(opened)) < 1600, "the reply is drifting back toward a data dump"
+    assert not {"gaps", "invariants", "strategy", "assumptions_to_confirm"} & set(opened)
+
+
+def test_at_most_one_question_is_offered():
+    """One, not three. A writer who has had enough should not have to
+    decline a list."""
+    opened = mcp_server.design_open(DRAFT)
+    assert "next_question" not in opened or isinstance(opened["next_question"], dict)
+    question = opened.get("next_question")
+    if question:
+        assert question["ask"] and question["options"] and question["changes"]
+
+
+def test_progress_says_when_nothing_further_would_help():
+    """The completion signal, which is the unusual half of this."""
+    full = {"intent": "request", "stakes": "high", "medium": "email", "urgency": "today",
+            "time_available": "low", "authority": "approves", "prior_knowledge": "partial",
+            "sensitivity": "high", "power_distance": "upward", "voice": "preserve"}
+    opened = mcp_server.design_open(DRAFT, stated=full)
+    assert "next_question" not in opened
+    assert "nothing else you could tell me" in opened["progress"]
+
+
+def test_detail_is_available_but_never_volunteered():
+    opened = mcp_server.design_open(DRAFT, stated={"intent": "request", "stakes": "high"})
+    blob = json.dumps(opened)
+    assert "was chosen because" not in blob      # the reasoning
+    assert "evidence standard" not in blob.lower()  # the obligations
+    assert "runner" not in blob.lower()          # what came second
+
+    why = mcp_server.design_detail(opened["session"], "why")
+    assert "was chosen because" in why["detail"]
+    findings = mcp_server.design_detail(opened["session"], "findings")
+    assert findings["detail"].count("\n") >= 9  # all ten dimensions
+    contract = mcp_server.design_detail(opened["session"], "contract")
+    assert "situation.stakes: high" in contract["detail"]
+
+
+def test_detail_can_return_every_question_at_once():
+    opened = mcp_server.design_open(DRAFT)
+    everything = mcp_server.design_detail(opened["session"], "questions")
+    assert len(everything["questions"]) >= 1
+    assert all(q["ask"] for q in everything["questions"])
+    assert "not_worth_asking" in everything
+
+
+def test_an_unknown_depth_lists_what_exists():
+    opened = mcp_server.design_open(DRAFT)
+    result = mcp_server.design_detail(opened["session"], "everything")
+    assert "error" in result and "questions" in result["available"]
+
+
 def test_the_tool_loop_runs_end_to_end():
     opened = mcp_server.design_open(
-        "Migration staffing",
-        "We reviewed the release plan and identified a risk. We may need help.",
-        stated={"intent": "request", "stakes": "high", "medium": "email"},
+        DRAFT, stated={"intent": "request", "stakes": "high", "medium": "email"},
         inferred={"time_available": "low"})
-    assert opened["strategy"]["structure"] == "bluf"
-    assert "time_available" in opened["assumptions_to_confirm"]
     assert opened["next_step"]
 
+    answered = mcp_server.design_update(opened["session"], {"urgency": "today"})
+    assert answered["answer"]
+
     shaded = mcp_server.design_shade(opened["session"], [
-        {"shade": "decisive", "text": "Approve one engineer by 3 p.m. The estimate is preliminary."}])
-    assert shaded["variants"][0]["status"] in ("pass", "review", "fail")
+        {"shade": "decisive", "recommended": True,
+         "text": "Approve one engineer by 3 p.m. The estimate is preliminary."},
+        {"shade": "warm",
+         "text": "I know you are stretched. Could you approve one engineer by 3 p.m.? "
+                 "The estimate is preliminary."}])
+    assert [v["role"] for v in shaded["versions"]] == ["recommended", "alternative"]
+    assert shaded["versions"][1]["compared_to"] == "the recommended version"
 
     rendered = mcp_server.design_render(opened["session"])
     assert Path(rendered["path"]).exists()
     assert rendered["html"].startswith("<!doctype html>")
+
+
+def test_a_session_is_named_from_the_writing_not_the_salutation():
+    opened = mcp_server.design_open("Hi Priya,\n\nWe found a defect in the migration step.")
+    assert opened["session"].startswith("we-found-a-defect")
 
 
 def test_a_bad_field_value_returns_an_error_not_an_exception():

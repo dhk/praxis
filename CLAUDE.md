@@ -117,3 +117,11 @@ LLM by a human — the pipeline itself never calls one. Reachable via CLI
   comparison the writer is making). `design._review` wires this up and
   sorts the recommendation first; every difference map carries
   `compared_to` so a delta is never reported without its reference.
+- **Answer first, in every interface.** `brief.py` renders a design
+  result at four depths and the default is `answer`: the shape and what
+  is wrong, two or three sentences, no reasoning. `design_detail` and the
+  CLI's `--why` are the way down. Adding a field to the default MCP reply
+  needs an argument for why the writer cannot proceed without it —
+  `test_a_reply_is_the_answer_not_the_apparatus` fails otherwise. Offer
+  one question, never a list, and report `questions_outstanding` (the
+  true total) rather than the capped display list.

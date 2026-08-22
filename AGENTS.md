@@ -28,6 +28,7 @@ specific nested `AGENTS.md` overrides them.
 10. **Artifacts at every step, and they must be visual where comparison is the point.**
 11. **Usable vertical slices** — every wave ends in something a writer can use.
 12. **Local-first**: no accounts, no backend, no document upload, no telemetry.
+13. **Answer first, detail on request** — including in praxis's own interfaces.
 
 This list is mirrored in [`VISION.md`](VISION.md) — same items, same
 order; change both together.
@@ -113,6 +114,32 @@ never in a prompt and never in a model call.
 - Detectors are recall-oriented and conservative. A miss reports
   `unknown`, never `absent`. Do not tune a detector toward confidence it
   has not earned.
+
+## The interfaces obey the advice
+
+Praxis argues for leading with the conclusion, asking only what changes
+it, and letting the reader drill in. An interface of its own that opens
+with a wall of structure is advice the tool ignores, and it was shipped
+that way once: `design_open` returned every dimension, the runner-up, the
+contract and the invariants on every call — about 900 tokens to say
+something that fits in a sentence.
+
+So every reply, in every interface, carries four things and stops: the
+**answer**, the **progress**, **one question** if one is worth asking,
+and where to drill in. `brief.py` renders all four depths;
+`design_detail` and the CLI's `--why` are the way down. Adding a field to
+the default reply needs an argument for why the writer cannot proceed
+without it. `test_a_reply_is_the_answer_not_the_apparatus` is the guard.
+
+Two related rules:
+
+- **Offer one question, never a list.** A writer who has had enough
+  should not have to decline three things.
+- **Report the true outstanding count, not the displayed one.** The list
+  is capped at three; the count is not. Progress that never moves reads
+  as no progress, and the count reaching zero — "nothing else you could
+  tell me would change it" — is a completion signal almost nothing else
+  can give.
 
 ## Model use
 

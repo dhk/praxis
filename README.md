@@ -126,11 +126,37 @@ python -m praxis mcp        # MCP server on stdio
 python -m praxis serve      # browse saved sessions at 127.0.0.1:8765
 ```
 
-The server exposes `design_open`, `design_update`, `design_shade`,
-`design_render`, `design_list`, and `design_schema`. A client works the
-loop — open a session, ask only the questions praxis returns, write the
-draft and any offered variants, submit them for checking, then publish
-the rendered page as an artifact.
+The server exposes `design_open`, `design_update`, `design_detail`,
+`design_shade`, `design_render`, `design_list`, and `design_schema`.
+
+It is answer-first and conversational. Paste a draft and the first call
+answers immediately — there is no interview to get through:
+
+```text
+Fix 4 things before sending: no request of the reader; the point is not in
+the opening; no verification or owner. Plus 1 more. Shape it bottom line up front.
+
+low confidence · 7 questions would still change this · 9 more findings not shown
+
+? What must they do, decide, or understand afterwards?
+```
+
+Answer one, or don't. Each reply offers exactly one more question and
+reports what is still outstanding, so stopping is a choice made with the
+cost in front of you. Answer enough of them and praxis says the thing
+almost no other tool can:
+
+```text
+high confidence · nothing else you could tell me would change it · 5 more findings not shown
+```
+
+That is not a stock phrase — it falls out of the same perturbation check
+that picks the questions. If every remaining unknown lands on the same
+strategy, there is genuinely nothing left to ask.
+
+The reasoning, the full ten-dimension scorecard, and the contract are all
+one `design_detail` call away, and never volunteered. `praxis design`
+behaves the same way, with `--why` as the way down.
 
 ## One engine, two interfaces
 
