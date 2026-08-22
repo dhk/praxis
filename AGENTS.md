@@ -84,6 +84,49 @@ a feature commit.
 - **The engine reaches no network and no model.** Guarded by
   `test_the_engine_never_reaches_a_model_or_the_network`.
 
+## Documents
+
+Every document here is **one of these types**, and says which in its own
+header. A document that is not one of them is either mis-typed or should
+not exist.
+
+| Type | Answers | Lives in |
+|---|---|---|
+| **Charter** | The standing rules, and where this is going | `AGENTS.md`, `VISION.md`, `ROADMAP.md` |
+| **RFC** | What we decided, and why | `spec/RFC-*.md` |
+| **Requirement** | What a thing must do, for whoever builds or designs it | `docs/design/<topic>/` |
+| **Guide** | How to use or operate something | `README.md`, `CONTRIBUTING.md`, `docs/architecture.md` |
+| **Research idea** | A question worth investigating, before it is worth specifying | `docs/research/<topic>/idea.md` |
+| **Research specification** | What the research settles, what counts as sufficient evidence, and what we do under each outcome | `docs/research/<topic>/specification.md` |
+| **Research results** | One source's findings, written without having seen another's | `docs/research/<topic>/findings/` |
+| **Research recommendations** | The synthesis, and what to do about it | `docs/research/<topic>/synthesis.md` |
+
+The four research types are stages, in that order. Skipping from idea
+straight to results is how a pass ends up measuring whatever it happened
+to find.
+
+**Handouts are not documents.** A brief, a handoff prompt, a search
+prompt — these are the specification's questions packaged for a
+particular recipient. They live beside it and are derived from it; they
+are not a ninth type, and they never carry a decision the specification
+does not already carry.
+
+### Both lists earn their keep
+
+**A document earns its keep or it does not get written.** The test is
+whether someone would make a worse decision without it. A file that
+restates what the code already says, or what another document already
+decided, is not documentation — it is a second source of truth waiting to
+drift from the first. Prefer extending an existing document to adding one.
+
+**A type earns its place the same way, and the bar is higher.** The
+research specification was added because a brief alone left findings free
+to be read as confirming whatever the author already preferred; fixing
+the decision rules *before* the evidence arrives removes that freedom.
+That is the kind of thing a new type has to be able to say for itself. If
+a proposed type cannot name what goes wrong without it, the answer is a
+section in an existing type.
+
 ## Rules are data
 
 Both layers are generic over their rule tables, and this is the main

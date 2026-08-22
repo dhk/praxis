@@ -1,11 +1,14 @@
 # Research specification: detector evaluation
 
-**Type:** research specification — a new document type in this repository.
+**Type:** research specification (see [`AGENTS.md` § Documents](../../../AGENTS.md#documents)).
+
 A *brief* says what to go and find out. A *specification* says what
 decision the answer settles, what would count as sufficient evidence, and
 what we do under each possible outcome. It is written **before** the
 findings arrive, so the research cannot later be read to confirm whatever
-we already wanted.
+we already wanted. `brief.md` and the two handoff prompts are this
+document's questions packaged for a recipient — handouts, not documents
+in their own right.
 
 **Informs:** [RFC-0005](../../../spec/RFC-0005-detector-measurement.md),
 open questions 1–6.

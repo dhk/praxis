@@ -6,6 +6,12 @@ Engineering rules, product invariants, and working method live in
 [`AGENTS.md`](AGENTS.md) — read it first. Product direction is
 [`VISION.md`](VISION.md) and [`ROADMAP.md`](ROADMAP.md).
 
+Before writing any document, read [`AGENTS.md` § Documents](AGENTS.md#documents):
+every document is one of eight enumerated types and declares which. Both a
+document and a type have to earn their keep — the test for a document is
+whether someone would decide worse without it, and the test for a new type
+is whether it can name what goes wrong in its absence.
+
 ## What this is
 
 praxis is a deterministic, stdlib-only Python instrument for auditable written communication. It has two layers over one engine, and neither generates prose:
