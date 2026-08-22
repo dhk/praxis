@@ -1,6 +1,15 @@
 # Architecture
 
-Praxis is one repository and one Python transformation engine exposed through two interfaces: a command-line harness and a static browser viewer. Keeping them together makes the viewer evidence of the engine's real behavior and gives both interfaces the same artifact contract.
+Praxis is one repository and one Python engine, carrying two layers and exposed through three interfaces: a command-line harness, a static browser viewer, and an MCP server. Keeping them together makes each interface evidence of the engine's real behavior and gives them all the same artifact contract.
+
+The two layers answer different questions and share nothing but the engine's discipline:
+
+| Layer | Entry point | Question |
+|---|---|---|
+| Transformation harness (RFC-0001) | `pipeline.run_pipeline(text, pack_id)` | Which mechanical defects can be fixed with evidence, and did protected content survive? |
+| Communication design (RFC-0003) | `design.design(draft, contract, variants)` | What should this message do for this reader at this level of risk, and does the draft do it? |
+
+Neither layer generates prose, and neither reaches a model or the network. The design layer's prose comes from the client's own model over MCP; praxis supplies the strategy and the audit.
 
 ## System view
 
@@ -10,6 +19,7 @@ flowchart TB
     subgraph Interfaces
         CLI["CLI\npython -m praxis"]
         UI["Static web UI\nHTML, CSS, JavaScript"]
+        MCP["MCP server\npraxis/mcp"]
     end
     subgraph BrowserBoundary["Browser process — document stays local"]
         UI --> Boundary["engine.js API"]
@@ -18,13 +28,25 @@ flowchart TB
     end
     User --> CLI
     User --> UI
+    Client["The user's own model\n(writes the prose)"] --> MCP
+    User --> Client
     CLI --> Engine["Shared praxis Python engine"]
     Pyodide --> Engine
+    MCP --> Engine
     Packs["Versioned transformation packs"] --> Engine
-    Engine --> Result["In-memory pipeline result"]
-    Result --> Files["Six-file artifact trail"]
+    Engine --> Harness["run_pipeline\ntransformation harness"]
+    Engine --> Design["design\ncommunication design"]
+    Harness --> Files["Six-file artifact trail"]
+    Design --> Page["Self-contained HTML page"]
     Files --> Review["Inspection, review, and handoff"]
+    Page --> Review
 ```
+
+The MCP path is the one worth reading twice. The client's model writes
+prose and hands it back; praxis checks it against constraints the
+contract declared beforehand. Praxis itself never calls that model, or
+any other — which is what makes the check independent of the thing it is
+checking.
 
 The CLI reads and writes local files. The deployed viewer is static and executes the packaged Python source inside the user's browser. Praxis has no application server, account system, database, telemetry pipeline, or document-upload endpoint. Hosting serves the application assets, and the page requests its display font from Google Fonts; neither request includes document contents. The first local build downloads the pinned Pyodide runtime. Document processing itself stays inside the browser boundary.
 
@@ -51,7 +73,17 @@ flowchart LR
 | `praxis/packs.py` and `praxis/rules.py` | Define pack registry behavior; observe, recommend, and transform. | Packs select domain rules; the interfaces do not duplicate them. |
 | `praxis/validation.py` | Checks protected tokens and applies explicit validation status. | Provides conservative evidence, not proof of semantic equivalence. |
 | `praxis/report.py` and `praxis/metrics.py` | Produce review-facing reports and before/after measurements. | Consume pipeline results; they do not decide edits. |
-| `praxis/cli.py` | Reads an input path and writes artifact files. | Thin adapter over `run_pipeline`. |
+| `praxis/cli.py` | Reads an input path and writes artifact files. | Thin adapter over `run_pipeline` and `design`. |
+| `praxis/contract.py` | The communication contract: fields, closed domains, provenance. | Data only; it selects nothing itself. |
+| `praxis/strategy.py` | Scores structures against a contract and computes which questions are material. | Generic over the `Structure` table; adding a structure never touches the scorer. |
+| `praxis/shading.py` | Decides whether variants are warranted, extracts invariants, checks a variant, and builds its difference map. | Reads contracts, never strategies. |
+| `praxis/evaluate.py` | Ten fit dimensions, each with evidence and an honest `unknown`. | Reports; it never rewrites and emits no score. |
+| `praxis/signals.py` | Conservative text detectors shared by evaluation and shading. | Recall-oriented: a miss is `unknown`, never `absent`. |
+| `praxis/design.py` | Orchestrates one design session and returns its result. | The single boundary all three interfaces consume. |
+| `praxis/render.py` | Renders a design result as a self-contained HTML page. | Pure string building; it can only show what the engine computed. |
+| `praxis/mcp/server.py` | The MCP tool surface and the loop it walks a client through. | The only place a client model receives instructions. |
+| `praxis/mcp/store.py` | Session persistence: contract, draft, variants. | Stores nothing derived, so no verdict can go stale. |
+| `praxis/mcp/serve.py` | A loopback HTML viewer for saved sessions. | Read-only; not an application server. |
 | `web/src/engine.js` | Presents `runPipeline` and zip-download operations to the UI. | Keeps Pyodide details out of the rest of the UI. |
 | `web/src/worker.js` | Loads the Python package in Pyodide and runs it off the UI thread. | The browser/Python bridge; it must preserve the CLI artifact contract. |
 | `scripts/build_site.sh` | Assembles the static site, Python sources, examples, and pinned Pyodide runtime. | Build-time packaging only; it is not an application backend. |
@@ -116,6 +148,34 @@ description.
   the same reason `worker.js` is the sole Python boundary. Reaching for
   a JS diff library here is the locally-plausible edit that quietly
   breaks the byte-identical guarantee.
+- **`praxis/*.py` must stay stdlib-only, and `praxis/mcp/` is how.**
+  `scripts/build_site.sh` copies the package with `cp praxis/*.py
+  dist/py/praxis/` — a non-recursive glob. Every module in that glob is
+  written into the Pyodide filesystem, so a third-party import there
+  breaks the viewer at runtime in a browser rather than in CI. Host-side
+  code that needs dependencies (the `mcp` SDK, an HTTP server) lives in
+  the `praxis/mcp/` subpackage, which the glob never matches. Two tests
+  guard this: `test_the_browser_bundle_stays_stdlib_only` parses every
+  module's imports, and
+  `test_mcp_subpackage_is_excluded_from_the_browser_bundle` fails if the
+  copy stops being a non-recursive glob.
+- **Question materiality is computed, not curated.**
+  `strategy.material_questions` takes an unknown contract field, walks it
+  across its closed domain, re-runs the recommendation for each value,
+  and asks only if the outcomes actually split. This is why contract
+  domains are closed and why the outcome fingerprint spans both the
+  structure and the shading offer. Replacing it with a hand-maintained
+  list of "important" fields would remove the layer's central mechanism;
+  `test_every_asked_question_actually_changes_the_strategy` and
+  `test_no_settled_field_would_have_changed_the_strategy` check both
+  directions.
+- **Shading invariants come in two kinds and must stay separate.**
+  Verbatim invariants (figures, links, declared protected strings) are
+  compared byte-for-byte. Presence invariants (an ask, a deadline, an
+  owner, a confirmation) must survive in *any* wording — requiring them
+  verbatim would forbid the rewriting shading exists to do. The
+  uncertainty check sits alongside both: losing every marker of what is
+  not yet known blocks a variant, losing some flags it for review.
 - **Deploy** (`.github/workflows/deploy-pages.yml`) builds and deploys to
   GitHub Pages on every push to `main`. GitHub Pages **Source must be set
   to "GitHub Actions"** in repo settings (Settings → Pages) — on "Deploy
@@ -157,6 +217,13 @@ The browser's downloaded zip is intended to contain byte-identical file contents
 | Validation | A check that protected invariants survived transformation. |
 | Artifact | Persisted intermediate or final output. |
 | Transformation pack | Versioned domain rules selected for a run. |
+| Communication contract | A compact, editable model of the situation: reader, outcome, stakes, evidence, constraints. |
+| Provenance | Whether a contract value was stated by the writer or inferred by the assistant. |
+| Structure | An ordering of a message (BLUF, SBAR, pyramid) recommended from the contract. |
+| Material question | A question whose possible answers demonstrably change the recommended strategy. |
+| Shade | A named rhetorical texture applied to unchanged substance, carrying a declared tradeoff. |
+| Invariant | Content that must survive a variant — verbatim, or in any wording. |
+| Difference map | What measurably changed between two versions, what was held, and whether the shade did what it claims. |
 
 ## Privacy and trust boundary
 
@@ -166,6 +233,9 @@ The artifact trail improves auditability; it does not make every transformation 
 
 ## Non-goals
 
+- Generating prose anywhere in this repository, or adding a model provider, API key, or network call to the engine.
+- Emitting a single overall quality score for a document or a message.
+- Predicting how a named individual will react to a message.
 - Splitting the CLI and viewer into separate repositories or maintaining two engines.
 - Claiming semantic equivalence from token-preservation checks.
 - Providing collaborative editing, accounts, cloud storage, or a hosted processing API.

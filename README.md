@@ -1,8 +1,17 @@
 # praxis
 
-> An early reference implementation for transparent, auditable document transformation pipelines.
+> An early reference implementation for transparent, auditable written communication.
 
-Praxis turns document improvement into an inspectable workflow. Instead of returning only a rewritten document, it records what it observed, what it recommended, which changes it made, and whether protected content survived. That trail makes a transformation reviewable, testable, and portable between the command line and the browser.
+Praxis turns document work into an inspectable workflow. Instead of returning only a rewritten document, it records what it observed, what it recommended, which changes it made, and whether protected content survived. That trail makes a transformation reviewable, testable, and portable between the command line and the browser.
+
+Praxis has two layers over one Python engine, and **neither one writes prose**:
+
+| Layer | Question it answers |
+|---|---|
+| **Transformation harness** | Which mechanical defects can be fixed with evidence, and did protected content survive? |
+| **Design layer** | What should this message do for this reader at this level of risk, and does the draft do it? |
+
+The design layer is new and MCP-first — see [Communication design](#communication-design) below, [`VISION.md`](VISION.md) for why it exists, and [RFC-0003](spec/RFC-0003-contextual-communication-design.md) for how it works.
 
 ## Try Praxis
 
@@ -72,6 +81,57 @@ python -m praxis run examples/claude_skill/SKILL.md --pack claude_skill_authorin
 
 The `claude_skill_authoring` pack encodes corpus-measured practices from the [skill-map](https://github.com/dhk/skill-map) study of roughly 5,000 crawled Claude skills.
 
+## Communication design
+
+The second layer works above the level of style. Given a communication
+situation it recommends a structure and says why, asks only the
+questions whose answers would change that recommendation, evaluates a
+draft against ten dimensions with the evidence attached, and audits any
+alternative versions to prove no figure, commitment, or caveat went
+missing.
+
+```bash
+python -m praxis design examples/decision_request/input.md \
+  --set intent=request --set stakes=high --set time_available=low \
+  --set sensitivity=high --set power_distance=upward
+```
+
+```text
+Bottom line up front (high confidence) · 5 gap(s) at raised stakes — resolve before sending
+Structure: Bottom line up front (high confidence)
+  gap: outcome_clarity — The intent is 'request' but no request of the reader was found.
+  gap: structural_fit — bluf puts the conclusion first; the opening is background.
+  gap: risk_calibration — At high stakes the draft lacks: verification, owner.
+  gap: relationship_fit — Writing upward with 3 hedges around the ask; deference here
+                          reads as uncertainty about the request itself.
+  gap: actionability — Present: none. Missing: ask, owner, deadline, verification.
+Wrote artifacts/design.html
+```
+
+Run the same draft at `--set stakes=low` and most of that disappears —
+the same words are fit or unfit depending on the situation, which is the
+layer's whole argument. See
+[`examples/decision_request/contract.md`](examples/decision_request/contract.md)
+for the contrast. Omit the draft entirely to plan before writing. The HTML file is a self-contained
+page — contract, strategy, scorecard, and any variants side by side with
+their difference maps — with no scripts and no network requests.
+
+Praxis generates no prose here either. It decides the shape, states what
+may not move, and checks whatever text comes back. Where prose is
+wanted, it comes from whichever model the writer is already using:
+
+```bash
+python -m pip install -e ".[mcp]"
+python -m praxis mcp        # MCP server on stdio
+python -m praxis serve      # browse saved sessions at 127.0.0.1:8765
+```
+
+The server exposes `design_open`, `design_update`, `design_shade`,
+`design_render`, `design_list`, and `design_schema`. A client works the
+loop — open a session, ask only the questions praxis returns, write the
+draft and any offered variants, submit them for checking, then publish
+the rendered page as an artifact.
+
 ## One engine, two interfaces
 
 ```mermaid
@@ -97,17 +157,29 @@ Design principles:
 5. Emit artifacts at every step.
 6. Prefer another operation over another prompt.
 
+The full list of product invariants — including *warmer never means less
+truthful*, *ask only what changes the answer*, and *no opaque scores* —
+is in [`VISION.md`](VISION.md), with the engineering rules that follow
+from them in [`AGENTS.md`](AGENTS.md).
+
 ## Repository layout
 
 ```text
-praxis/        Shared Python engine, CLI, models, rules, validation, and reports
+praxis/        Shared Python engine (stdlib only — it also runs in the browser)
+praxis/mcp/    Host-side surfaces: MCP server, session store, local viewer
 packs/         Human-readable metadata mirrors for transformation packs
 examples/      Inputs used for demos and pack-specific validation
 tests/         Python regression and artifact-contract tests
 web/           Static browser interface and Pyodide worker
 scripts/       Viewer build tooling
-docs/          Architecture and design documentation
-spec/          Early RFCs for the engine and viewer
+docs/          Architecture, design documentation, and source research
+spec/          RFCs for the engine, viewer, and design layer
 ```
+
+The engine's modules split by layer: `pipeline`, `rules`, `packs`,
+`validation`, `report`, `metrics` are the transformation harness;
+`design`, `contract`, `strategy`, `shading`, `evaluate`, `signals`,
+`render` are the design layer. `praxis/mcp/` is the only part with a
+third-party dependency, and the browser bundle never includes it.
 
 For development setup and change-specific checks, see [CONTRIBUTING.md](CONTRIBUTING.md).
