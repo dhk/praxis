@@ -14,8 +14,15 @@ it honest — a rewriter that grades its own rewriting is not an audit.
 The intended loop, which `next_step` in every response nudges the client
 along:
 
-    open  →  answer the questions that matter  →  write the variants
-          →  submit them for checking  →  render the page
+    open  →  answer the questions that matter  →  write the recommended
+          version and any offered alternatives  →  submit them all for
+          checking  →  render the page
+
+The recommendation goes in with the alternatives, marked. It is the
+reference every alternative is priced against: a writer choosing between
+versions is asking how each differs from the one they would otherwise
+send, not how each differs from a draft they have already decided to
+replace.
 
 `design_render` returns a complete self-contained HTML page. A client
 that can publish artifacts should publish it: the contract, the
@@ -100,8 +107,9 @@ def _view(record: dict) -> dict:
         out["invariants"] = result["invariants"]
     if result["variants"]:
         out["variants"] = [{
-            "label": v["label"], "shade": v["shade"],
-            "status": v["check"]["status"] if v["check"] else "unchecked",
+            "label": v["label"], "shade": v["shade"], "role": v["role"],
+            "status": v["check"]["status"] if v["check"] else "baseline",
+            "compared_to": v["check"]["difference_map"]["compared_to"] if v["check"] else None,
             "violations": v["check"]["violations"] if v["check"] else [],
             "changed": v["check"]["difference_map"]["moved"] if v["check"] else [],
             "held": v["check"]["difference_map"]["held"] if v["check"] else [],
@@ -123,11 +131,14 @@ def _next_step(result: dict) -> str:
     gaps = result.get("evaluation", {}).get("priority", [])
     if gaps and not result["variants"]:
         return (f"Close these gaps first: {', '.join(gaps)}. Then, if shading is offered, write "
-                "the recommended version plus the offered shades and submit them to design_shade.")
+                "the recommended version plus the offered shades and submit them all to "
+                "design_shade, with the recommended one marked `recommended: true`.")
     if result["shading"]["offer"] and not result["variants"]:
         shades = ", ".join(s["shade"] for s in result["shading"]["shades"])
         return (f"Write the recommended version plus these shades: {shades}. Keep every verbatim "
-                "invariant byte-identical. Submit all of them to design_shade.")
+                "invariant byte-identical. Submit all of them to design_shade, including the "
+                "recommended one marked `recommended: true` — it is what the alternatives are "
+                "compared against.")
     if result["variants"]:
         failed = [v["label"] for v in result["variants"]
                   if v["check"] and v["check"]["status"] == "fail"]
@@ -187,19 +198,29 @@ def _update(record: dict, stated: dict | None, inferred: dict | None, draft: str
 def design_shade(session_id: str, variants: list[dict]) -> dict:
     """Submit versions you have written and have each one audited.
 
-    Each variant is `{"shade": id, "text": "...", "label": "..."}`. praxis
-    checks every one against the session's draft as its base and reports:
-    protected content that went missing, commitments the base made and the
-    variant dropped, markers of uncertainty that were smoothed away, what
-    measurably changed, what was deliberately held, and whether the variant
-    is actually the shade it claims to be.
+    **Send the recommended version too, not only the alternatives.** Each
+    entry is `{"shade": id, "text": "...", "label": "...", "recommended":
+    true}`; mark exactly one as recommended (the first is assumed
+    otherwise). The recommendation is what the alternatives are priced
+    against, and without it the writer sees two options with nothing to
+    compare them to.
 
-    A `fail` status means the variant changed something it was not allowed
-    to change. Rewrite it rather than explaining it away.
+    praxis reports, per version: protected content that went missing,
+    commitments dropped, markers of uncertainty smoothed away, what
+    measurably changed, what was deliberately held, and whether the
+    version is actually the shade it claims to be. The recommendation is
+    compared with the writer's draft; each alternative is compared with
+    the recommendation, so `changed` answers "how does this differ from
+    the version I would otherwise send". `compared_to` names the
+    reference on every result — do not report a delta without it.
+
+    A `fail` status means the version changed something it was not
+    allowed to change. Rewrite it rather than explaining it away.
     """
     record = store.load(session_id)
     record["variants"] = [
-        {"shade": v.get("shade"), "text": v.get("text", ""), "label": v.get("label", "")}
+        {"shade": v.get("shade"), "text": v.get("text", ""), "label": v.get("label", ""),
+         "recommended": bool(v.get("recommended"))}
         for v in variants]
     store.save(record)
     return _view(record)

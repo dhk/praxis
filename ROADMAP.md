@@ -60,7 +60,8 @@ product.
 | Stakes ladder | Cumulative requirements and an evidence standard from `low` to `crisis` |
 | Evaluate mode | Ten dimensions, each `pass` / `gap` / `unknown` with the evidence attached. No overall score |
 | Shading | Eight named shades; at most two offered, only against a named tension; suppressed entirely where a protocol decides the shape |
-| Invariant audit | Verbatim content, commitments the base made, and markers of uncertainty — checked per variant, with a difference map of what moved and what was held |
+| Invariant audit | Verbatim content, commitments, and markers of uncertainty — checked per version against the writer's draft, each violation naming its reference |
+| Priced alternatives | The recommendation is submitted with the alternatives and listed first; every alternative's difference map is measured **against the recommendation**, so the writer sees what choosing it costs and what it holds |
 | Artifact | One self-contained, theme-aware HTML page; no scripts, no network |
 | MCP server | `design_open`, `design_update`, `design_shade`, `design_render`, `design_list`, `design_schema` |
 | CLI | `praxis design`, `praxis serve`, `praxis mcp` |
@@ -87,6 +88,8 @@ product.
 - [x] An empty contract produces `unknown`, never `gap`.
 - [x] The page renders in both themes with no script and no external URL.
 - [x] The engine imports nothing outside the standard library.
+- [x] An alternative is compared with the recommendation, not the draft,
+      and every delta names its reference.
 - [x] A first-run walkthrough that takes a real message end to end
       (`examples/decision_request/`).
 - [ ] Tool descriptions read as instructions a client model follows

@@ -287,6 +287,124 @@ def test_variants_are_checked_against_the_draft():
     assert result["variants"][0]["check"]["status"] == "fail"
 
 
+# --- detectors --------------------------------------------------------
+
+def test_a_polite_request_is_not_an_uncertainty_marker():
+    """"Could you approve" is a request, not a hedge.
+
+    Counting it inflated every courteous draft's uncertainty score and
+    masked real losses: a variant that deleted every genuine caveat still
+    scored a marker for saying "could you".
+    """
+    assert signals.find("uncertainty", "Could you approve this? May I suggest Thursday?") == []
+    assert signals.find("uncertainty", "The fix may slip.") == ["may"]
+
+
+def test_uncertainty_detection_survives_paraphrase():
+    for text, expected in [("the estimate is preliminary", 2),
+                           ("roughly 40 records, still investigating", 2),
+                           ("the number is unconfirmed and the date is TBD", 2)]:
+        assert len(signals.find("uncertainty", text)) >= expected - 1, text
+
+
+def test_detectors_return_the_spans_they_matched():
+    """A finding must be able to show what it saw."""
+    found = signals.find("deadline", "Please reply by 3 p.m. today.")
+    assert found and all(span.strip() for span in found)
+
+
+# --- comparing versions against the recommendation --------------------
+
+DRAFT_WITH_FACTS = "We may need help. Costs rose 40%. The estimate is preliminary."
+RECOMMENDED = "Approve one engineer by 3 p.m. Costs rose 40%. The estimate is preliminary."
+ALTERNATIVE = ("I know you are stretched. Could you approve one engineer by 3 p.m.? "
+               "Costs rose 40%; the estimate is preliminary.")
+
+
+def _versions(draft=DRAFT_WITH_FACTS, variants=None):
+    return design(draft, build({"intent": "request", "stakes": "high"}),
+                  variants or [{"shade": "decisive", "text": RECOMMENDED, "recommended": True},
+                               {"shade": "warm", "text": ALTERNATIVE}])["variants"]
+
+
+def test_an_alternative_is_measured_against_the_recommendation():
+    """The writer is choosing between versions they could send, not
+    between two edits of a draft they already decided to replace."""
+    alternative = next(v for v in _versions() if v["role"] == "alternative")
+    dm = alternative["check"]["difference_map"]
+    assert dm["compared_to"] == "the recommended version"
+    # Measured against the recommendation the warm version *gains* an
+    # acknowledgement; measured against the draft that delta is invisible.
+    assert any("acknowledgement" in m for m in dm["moved"])
+
+
+def test_the_recommendation_is_measured_against_the_draft():
+    recommended = next(v for v in _versions() if v["role"] == "recommended")
+    assert recommended["check"]["difference_map"]["compared_to"] == "your draft"
+
+
+def test_the_recommendation_is_listed_first_however_it_was_submitted():
+    versions = _versions(variants=[{"shade": "warm", "text": ALTERNATIVE},
+                                   {"shade": "decisive", "text": RECOMMENDED,
+                                    "recommended": True}])
+    assert [v["role"] for v in versions] == ["recommended", "alternative"]
+
+
+def test_the_first_version_is_the_recommendation_when_none_is_marked():
+    versions = _versions(variants=[{"shade": "decisive", "text": RECOMMENDED},
+                                   {"shade": "warm", "text": ALTERNATIVE}])
+    assert versions[0]["shade"] == "decisive"
+    assert versions[0]["role"] == "recommended"
+
+
+def test_invariants_still_come_from_the_draft_not_the_recommendation():
+    """An alternative may not lose a figure just because the recommended
+    version lost it first."""
+    versions = _versions(variants=[
+        {"shade": "decisive", "text": "Approve one engineer. The estimate is preliminary.",
+         "recommended": True},
+        {"shade": "warm", "text": "Could you approve one engineer? The estimate is preliminary."}])
+    for version in versions:
+        assert version["check"]["status"] == "fail"
+        assert "40%" in version["check"]["violations"][0]["items"]
+
+
+def test_compose_mode_checks_alternatives_against_the_recommendation():
+    """With no draft the recommendation is the first prose that exists, so
+    it becomes the reference. Before this, compose sessions went entirely
+    unchecked."""
+    versions = design("", build({"intent": "request"}), [
+        {"shade": "decisive", "text": RECOMMENDED, "recommended": True},
+        {"shade": "warm", "text": "Could you approve one engineer sometime?"}])["variants"]
+    alternative = next(v for v in versions if v["role"] == "alternative")
+    kinds = [x["kind"] for x in alternative["check"]["violations"]]
+    assert "content_loss" in kinds  # dropped 3 p.m. and 40%
+    assert "uncertainty_loss" in kinds
+
+
+def test_a_compose_mode_recommendation_is_not_diffed_with_itself():
+    versions = design("", build(), [{"shade": "decisive", "text": RECOMMENDED}])["variants"]
+    assert versions[0]["check"] is None
+    assert "baseline" in versions[0]["note"]
+
+
+def test_every_difference_map_names_its_reference():
+    """The same numbers mean different things under different references."""
+    for version in _versions():
+        if version["check"]:
+            assert version["check"]["difference_map"]["compared_to"]
+
+
+def test_a_violation_names_the_reference_it_was_measured_against():
+    """A count with no reference reads as a contradiction beside the
+    difference map, which uses a different one."""
+    versions = _versions()
+    alternative = next(v for v in versions if v["role"] == "alternative")
+    for violation in alternative["check"]["violations"]:
+        assert "your draft" in violation["detail"], violation["detail"]
+    assert alternative["check"]["difference_map"]["compared_to"] == "the recommended version"
+
+
 # --- rendering --------------------------------------------------------
 
 def _rendered() -> str:

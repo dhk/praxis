@@ -185,44 +185,71 @@ def invariants(base: str, contract: Contract) -> dict:
     }
 
 
-def check(base: str, variant: str, contract: Contract, shade: str | None = None) -> dict:
-    """Validate one variant against the base and return its difference map."""
-    inv = invariants(base, contract)
+def check(source: str, variant: str, contract: Contract, shade: str | None = None,
+          compare_to: str | None = None, compare_label: str = "the source",
+          source_label: str = "the source") -> dict:
+    """Validate one variant and return its difference map.
+
+    Two references, deliberately separate, because they answer different
+    questions.
+
+    `source` supplies the invariants — it is where the protected content
+    and the commitments came from, so it is the writer's own draft
+    whenever there is one. Losing a figure is measured against the truth,
+    not against another rewrite.
+
+    `compare_to` is what the difference map is measured against, and
+    defaults to `source`. For an alternative it should be the
+    **recommended version**, not the original draft: the writer is
+    choosing between the recommendation and the alternative, and "how
+    does this differ from the one I would otherwise send" is the question
+    they are actually asking. Diffing both against the draft answers a
+    question nobody asked and buries the distinction between them.
+    """
+    reference = source if compare_to is None else compare_to
+    inv = invariants(source, contract)
+    # Violations are measured against `source` and the difference map
+    # against `reference`. When those differ, a bare count reads as a
+    # contradiction — "uncertainty fell from 5 to 3" sitting above
+    # "uncertainty unchanged (3)" — so every violation names its own
+    # reference rather than leaving the reader to guess.
     violations: list[dict] = []
 
     missing = [t for t in inv["verbatim"] if t not in variant]
     if missing:
         violations.append({
             "kind": "content_loss", "severity": "block",
-            "detail": "protected content is absent from the variant",
+            "detail": f"protected content from {source_label} is absent from this version",
             "items": missing})
 
     lost = [name for name, found in inv["presence"].items() if found and not signals.find(name, variant)]
     if lost:
         violations.append({
             "kind": "commitment_loss", "severity": "block",
-            "detail": "the base states these and the variant no longer does",
+            "detail": f"{source_label} states these and this version no longer does",
             "items": lost})
 
     base_unc, variant_unc = len(inv["uncertainty_markers"]), len(signals.find("uncertainty", variant))
     if base_unc and not variant_unc:
         violations.append({
             "kind": "uncertainty_loss", "severity": "block",
-            "detail": "every marker of what is not yet known was removed; "
-                      "a shorter or warmer version may not become a more certain one",
+            "detail": f"every marker of what is not yet known in {source_label} was "
+                      "removed; a shorter or warmer version may not become a more "
+                      "certain one",
             "items": inv["uncertainty_markers"]})
     elif base_unc and variant_unc < base_unc:
         violations.append({
             "kind": "uncertainty_reduced", "severity": "review",
-            "detail": f"markers of uncertainty fell from {base_unc} to {variant_unc}; "
-                      "confirm the message still claims only what is known",
+            "detail": f"against {source_label}, markers of uncertainty fell from "
+                      f"{base_unc} to {variant_unc}; confirm the message still claims "
+                      "only what is known",
             "items": inv["uncertainty_markers"]})
 
     return {
         "status": "fail" if any(v["severity"] == "block" for v in violations)
                   else ("review" if violations else "pass"),
         "violations": violations,
-        "difference_map": difference_map(base, variant, shade),
+        "difference_map": difference_map(reference, variant, shade, compare_label),
     }
 
 
@@ -238,8 +265,14 @@ def _direction_met(direction: str, before: int, after: int) -> bool:
     return after > before
 
 
-def difference_map(base: str, variant: str, shade: str | None = None) -> dict:
+def difference_map(base: str, variant: str, shade: str | None = None,
+                   compared_to: str = "the source") -> dict:
     """What changed, what stayed, and whether the shade did what it claims.
+
+    `compared_to` names the reference in the result so a reader is never
+    left guessing whether a delta is measured against their own draft or
+    against the recommended version — the same numbers mean different
+    things under each.
 
     Shade fidelity is reported, never enforced. A variant can be good
     prose and a bad example of the shade it was labelled with, and
@@ -268,6 +301,7 @@ def difference_map(base: str, variant: str, shade: str | None = None) -> dict:
 
     return {
         "shade": shade,
+        "compared_to": compared_to,
         "opening_changed": base_open.lower() != variant_open.lower(),
         "opening": {"before": base_open, "after": variant_open},
         "length": {"words_before": bm["words"], "words_after": vm["words"],

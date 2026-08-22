@@ -31,11 +31,20 @@ DEADLINE = re.compile(
     r"|\b(?:today|EOD|COB|immediately|right away)\b", FLAGS)
 
 #: Language that keeps a claim honest about what is not yet known.
+#:
+#: The modals carry a negative lookahead because "could you approve" and
+#: "may I suggest" are polite requests, not hedges. Counting them inflated
+#: the uncertainty score of every courteous draft and, worse, masked real
+#: losses: a variant that deleted every genuine caveat still scored one
+#: marker for saying "could you". Bare `if` is likewise absent — it marks
+#: a conditional claim rather than the writer's confidence in it, and it
+#: is common enough that including it swamped the signal.
 UNCERTAINTY = re.compile(
     r"\b(?:preliminary|estimated?|estimates?|approximately|roughly|about\s+\d"
-    r"|may\b|might\b|could\b|likely|unlikely|unconfirmed|unclear|pending"
-    r"|subject to change|still (?:investigating|unknown)|not yet (?:known|confirmed)"
-    r"|we (?:do not|don't) yet know|TBD|to be confirmed|assum\w+|if\b)", FLAGS)
+    r"|(?:may|might|could)\b(?!\s+(?:you|I)\b)|likely|unlikely|unconfirmed|unclear"
+    r"|pending|subject to change|still (?:investigating|unknown)"
+    r"|not yet (?:known|confirmed)|we (?:do not|don't) yet know|TBD|to be confirmed"
+    r"|assum\w+)", FLAGS)
 
 #: Language that weakens a request without adding truth. Distinct from
 #: UNCERTAINTY: removing a hedge costs nothing, removing an uncertainty

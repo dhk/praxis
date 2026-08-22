@@ -106,4 +106,14 @@ LLM by a human — the pipeline itself never calls one. Reachable via CLI
   draft, and the variants; strategy and scorecards are recomputed on
   every read so a rule change never leaves a stale verdict in a file.
 - **Detectors are conservative.** A miss reports `unknown`, never
-  `absent`. `signals.py` is recall-oriented by design.
+  `absent`. `signals.py` is recall-oriented by design — but recall is not
+  a licence for false positives that mask real findings (see
+  `test_a_polite_request_is_not_an_uncertainty_marker`).
+- **Shading has two references and they must not be merged.**
+  `shading.check(source, variant, …, compare_to=…)` takes invariants from
+  `source` (the writer's draft, so an alternative cannot lose a figure
+  just because the recommendation did) and measures the difference map
+  against `compare_to` (the recommended version, because that is the
+  comparison the writer is making). `design._review` wires this up and
+  sorts the recommendation first; every difference map carries
+  `compared_to` so a delta is never reported without its reference.

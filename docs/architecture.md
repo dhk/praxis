@@ -169,6 +169,15 @@ description.
   `test_every_asked_question_actually_changes_the_strategy` and
   `test_no_settled_field_would_have_changed_the_strategy` check both
   directions.
+- **Shading takes two references, and merging them loses the comparison
+  the writer needs.** Invariants come from the writer's draft; the
+  difference map measures an alternative against the *recommended
+  version*. Diffing everything against the draft answers a question
+  nobody asked and hides what actually separates the two options on
+  offer. With no draft, the recommendation becomes the invariant source —
+  which is also why compose sessions are checked at all rather than
+  skipped. `difference_map` carries `compared_to` so a reader is never
+  left guessing which reference a delta is measured against.
 - **Shading invariants come in two kinds and must stay separate.**
   Verbatim invariants (figures, links, declared protected strings) are
   compared byte-for-byte. Presence invariants (an ask, a deadline, an
@@ -223,7 +232,8 @@ The browser's downloaded zip is intended to contain byte-identical file contents
 | Material question | A question whose possible answers demonstrably change the recommended strategy. |
 | Shade | A named rhetorical texture applied to unchanged substance, carrying a declared tradeoff. |
 | Invariant | Content that must survive a variant — verbatim, or in any wording. |
-| Difference map | What measurably changed between two versions, what was held, and whether the shade did what it claims. |
+| Difference map | What measurably changed between two versions, what was held, and whether the shade did what it claims. It always names its reference. |
+| Recommendation | The version praxis's strategy calls for, and the reference every alternative is priced against. |
 
 ## Privacy and trust boundary
 

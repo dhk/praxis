@@ -238,12 +238,27 @@ def _shading(result: dict) -> str:
 
 
 def _variants(result: dict) -> str:
+    """The versions side by side.
+
+    The recommendation comes first and says so. Every alternative names
+    what its difference map was measured against, because the same
+    numbers mean different things depending on the reference — a reader
+    who assumes the deltas are against their own draft will misread every
+    one of them.
+    """
     variants = result.get("variants") or []
     if not variants:
         return ""
     cards = []
     for v in variants:
-        check = v.get("check") or {}
+        check = v.get("check")
+        if check is None:
+            cards.append(f"""<div class="panel"><div class="top">{_chip(v['role'], 'stated')}
+<h3>{escape(v['label'])}</h3></div>
+<p class="small muted">{escape(v.get('tradeoff', ''))}</p>
+<pre class="doc">{escape(v['text'])}</pre>
+<p class="small muted">{escape(v.get('note', 'not checked'))}.</p></div>""")
+            continue
         dm = check.get("difference_map", {})
         status = check.get("status", "unchecked")
         kind = {"pass": "pass", "review": "review", "fail": "block"}.get(status, "unknown")
@@ -255,23 +270,38 @@ def _variants(result: dict) -> str:
         moved = "".join(f'<li class="nums">{escape(m)}</li>' for m in dm.get("moved", []))
         held = "".join(f'<li class="nums">{escape(h)}</li>' for h in dm.get("held", []))
         fid = "".join(
-            f'<li>{"✓" if f["met"] else "✗"} {escape(f["expected"])} ({escape(f["observed"])})</li>'
+            f'<li>{"&#10003;" if f["met"] else "&#10007;"} {escape(f["expected"])} '
+            f'({escape(f["observed"])})</li>'
             for f in dm.get("shade_fidelity", []))
         length = dm.get("length", {})
+        against = escape(dm.get("compared_to", "the source"))
         cards.append(f"""<div class="panel"><div class="top">{_chip(status, kind)}
+{_chip(v['role'], 'stated' if v['role'] == 'recommended' else '')}
 <h3>{escape(v['label'])}</h3></div>
 <p class="small muted">{escape(v.get('tradeoff', ''))}</p>
 <pre class="doc">{escape(v['text'])}</pre>
 {viol}
-<h2 style="margin-top:1rem">What changed</h2>
+<h2 style="margin-top:1rem">Changed, against {against}</h2>
 <ul class="tight small">{moved or '<li class="muted">nothing a detector can see</li>'}</ul>
 <h2>Deliberately unchanged</h2>
-<ul class="tight small">{held or '<li class="muted">no invariant signals in the base</li>'}</ul>
+<ul class="tight small">{held or _nothing_held(dm)}</ul>
 <h2>Did it do what the shade claims</h2>
 <ul class="tight small">{fid or '<li class="muted">no shade declared</li>'}</ul>
-<p class="small muted nums">{length.get('words_before', '?')} → {length.get('words_after', '?')} words ·
+<p class="small muted nums">{length.get('words_before', '?')} &rarr; {length.get('words_after', '?')} words &middot;
 similarity {dm.get('similarity', '?')}</p></div>""")
-    return _section("Variants and difference maps", f'<div class="grid two">{"".join(cards)}</div>')
+    return _section("Versions and difference maps", f'<div class="grid two">{"".join(cards)}</div>')
+
+
+def _nothing_held(dm: dict) -> str:
+    """An empty "held" list has two very different causes.
+
+    Either the reference carried no detectable signals at all, or it
+    carried them and every single one moved. Reporting both as "none"
+    tells the reader nothing; the second is a finding.
+    """
+    if dm.get("moved"):
+        return '<li class="muted">nothing held steady &mdash; every detected signal moved</li>'
+    return '<li class="muted">no detectable signals in the reference</li>'
 
 
 def _invariants(result: dict) -> str:

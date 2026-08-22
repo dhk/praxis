@@ -136,11 +136,27 @@ uncertainty may not be smoothed away.** Losing all of them blocks;
 losing some flags for review. Warmer never means less truthful, and
 shorter never means the caveat is gone.
 
-Each variant returns a difference map: what measurably moved, what was
-deliberately held, and whether the variant is actually the shade it
-claims to be. Shade fidelity is reported, never enforced — a variant can
-be good prose and a bad example of its label, and conflating those two
-failures helps nobody.
+Each version returns a difference map: what measurably moved, what was
+deliberately held, and whether it is actually the shade it claims to be.
+Shade fidelity is reported, never enforced — a variant can be good prose
+and a bad example of its label, and conflating those two failures helps
+nobody.
+
+**Two references, kept separate.** The invariants come from the writer's
+own draft: protected content originates there, and an alternative must
+not be allowed to lose a figure just because the recommended version lost
+it first. The *difference map*, though, measures each alternative against
+the **recommendation** — the writer is choosing between two versions they
+could send, not between two edits of a draft they have already decided to
+replace, so "how does this differ from the one I would otherwise send" is
+the question they are actually asking. Every difference map names its
+reference, because the same numbers mean different things under each.
+
+A consequence worth stating: the recommended version is submitted
+alongside the alternatives, marked. With no draft at all — a compose
+session — the recommendation is the first prose that exists and becomes
+the source of invariants, which is also how compose sessions came to be
+checked at all rather than silently skipped.
 
 ## MCP-first
 
@@ -202,7 +218,10 @@ comparison. Narrated in chat it is noise.
 ## Known limitations
 
 - **Detectors are regular expressions.** They see structure and marker
-  words, not meaning. Precision and recall are unmeasured; wave 4.
+  words, not meaning. Precision and recall are unmeasured; wave 4. Known
+  corrections so far: modal requests ("could you approve") are excluded
+  from uncertainty, and bare `if` is not counted as a hedge — both
+  inflated the score of courteous drafts and masked real caveat losses.
 - **Tension ordering truncates.** With two alternative slots and several
   matching tensions, the first-declared tension wins and later ones are
   masked. Deterministic and documented, but the ordering is currently an
