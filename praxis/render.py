@@ -17,58 +17,77 @@ from html import escape
 from .design import design as _design  # noqa: F401  (documents the input shape)
 
 CSS = """
-:root{--bg:#fbfbfa;--panel:#fff;--ink:#1a1a19;--muted:#6b6b66;--line:#e3e2dd;
---accent:#2f5d50;--pass:#2f6b4f;--gap:#9a4a1f;--unknown:#6b6b66;--chip:#f0efe9;
---block:#a02c2c;--review:#8a6d1f}
+/* Three type roles, and the split carries meaning rather than decoration:
+   serif is what a person wrote, mono is what the machine measured, and the
+   UI face is the harness talking about them. A reader can tell at a glance
+   whose text they are looking at. No web fonts — the page must render
+   offline and reach nothing. */
+:root{
+--ui:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+--prose:"Iowan Old Style","Charter",Georgia,"Times New Roman",serif;
+--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+--bg:#f6f7f9;--panel:#fff;--ink:#14181d;--muted:#5f6773;--line:#dee3e9;
+--accent:#1f4a7a;--chip:#eceff4;
+--pass:#1c6b49;--gap:#a4541c;--unknown:#6b7280;--block:#a12b2b;--review:#7f611a}
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]){
---bg:#16171a;--panel:#1d1f23;--ink:#e8e7e3;--muted:#9a9a94;--line:#2e3138;
---accent:#7fb8a4;--pass:#68b98c;--gap:#e0955e;--unknown:#9a9a94;--chip:#282b31;
---block:#e07a7a;--review:#d4b45e}}
-:root[data-theme=dark]{--bg:#16171a;--panel:#1d1f23;--ink:#e8e7e3;--muted:#9a9a94;
---line:#2e3138;--accent:#7fb8a4;--pass:#68b98c;--gap:#e0955e;--unknown:#9a9a94;
---chip:#282b31;--block:#e07a7a;--review:#d4b45e}
+--bg:#101317;--panel:#171b21;--ink:#e6e9ed;--muted:#97a0ad;--line:#262c35;
+--accent:#8ab0da;--chip:#1e242c;
+--pass:#5fb98d;--gap:#d9955f;--unknown:#97a0ad;--block:#e28080;--review:#cfae5f}}
+:root[data-theme=dark]{
+--bg:#101317;--panel:#171b21;--ink:#e6e9ed;--muted:#97a0ad;--line:#262c35;
+--accent:#8ab0da;--chip:#1e242c;
+--pass:#5fb98d;--gap:#d9955f;--unknown:#97a0ad;--block:#e28080;--review:#cfae5f}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);
-font:16px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 var(--ui)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .wrap{max-width:1080px;margin:0 auto;padding:2.5rem 1.25rem 5rem}
-h1{font-size:1.5rem;margin:0 0 .25rem;letter-spacing:-.01em}
-h2{font-size:.78rem;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);
-margin:2.5rem 0 .75rem;font-weight:600}
-h3{font-size:1rem;margin:0 0 .4rem}
-.headline{color:var(--muted);margin:0 0 .5rem}
-.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+h1{font-size:1.55rem;margin:0 0 .3rem;letter-spacing:-.015em;text-wrap:balance}
+h2{font-size:.72rem;text-transform:uppercase;letter-spacing:.11em;color:var(--muted);
+margin:2.5rem 0 .7rem;font-weight:650}
+h3{font-size:1rem;margin:0 0 .4rem;letter-spacing:-.005em;text-wrap:balance}
+.headline{color:var(--muted);margin:0 0 .5rem;max-width:68ch}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;
 padding:1.1rem 1.25rem;margin-bottom:.75rem}
 .grid{display:grid;gap:.75rem}
 @media(min-width:820px){.grid.two{grid-template-columns:1fr 1fr}}
 .kv{display:grid;grid-template-columns:minmax(9rem,auto) 1fr;gap:.3rem .9rem;font-size:.93rem}
 .kv dt{color:var(--muted)}
 .kv dd{margin:0}
-.chip{display:inline-block;font-size:.7rem;letter-spacing:.05em;text-transform:uppercase;
-padding:.12rem .45rem;border-radius:999px;background:var(--chip);color:var(--muted);
-font-weight:600;vertical-align:middle}
+.chip{display:inline-block;font:650 .68rem/1.5 var(--ui);letter-spacing:.06em;
+text-transform:uppercase;padding:.1rem .45rem;border-radius:3px;background:var(--chip);
+color:var(--muted);vertical-align:middle}
 .chip.pass{color:var(--pass)}.chip.gap{color:var(--gap)}.chip.unknown{color:var(--unknown)}
-.chip.stated{color:var(--accent)}.chip.inferred{color:var(--gap);border:1px dashed currentColor;background:none}
+.chip.stated{color:var(--accent)}
+.chip.inferred{color:var(--gap);border:1px dashed currentColor;background:none}
 .chip.block{color:var(--block)}.chip.review{color:var(--review)}
-.seq{display:flex;flex-wrap:wrap;gap:.4rem;margin:.6rem 0 0;padding:0;list-style:none}
-.seq li{background:var(--chip);border-radius:6px;padding:.25rem .6rem;font-size:.85rem}
-.seq li::before{content:counter(list-item) ". ";color:var(--muted)}
+/* The recommended sequence is a real order — the reader works through it in
+   this order — so it is numbered. Nothing else on the page is. */
+.seq{display:flex;flex-wrap:wrap;gap:.4rem;margin:.6rem 0 0;padding:0;list-style:none;
+counter-reset:step}
+.seq li{background:var(--chip);border-radius:4px;padding:.24rem .6rem;font-size:.85rem;
+counter-increment:step}
+.seq li::before{content:counter(step) ". ";color:var(--muted);font-variant-numeric:tabular-nums}
 ul.tight{margin:.4rem 0 0;padding-left:1.1rem}
-ul.tight li{margin:.15rem 0}
-.ev{font:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--muted);
-background:var(--chip);border-radius:5px;padding:.12rem .35rem;display:inline-block;margin:.15rem .2rem 0 0}
-.row{border-top:1px solid var(--line);padding:.7rem 0}
-.row:first-of-type{border-top:none}
-.row .top{display:flex;gap:.6rem;align-items:baseline;flex-wrap:wrap}
+ul.tight li{margin:.16rem 0}
+.ev{font:12.5px/1.5 var(--mono);color:var(--muted);background:var(--chip);border-radius:3px;
+padding:.1rem .35rem;display:inline-block;margin:.16rem .2rem 0 0;
+font-variant-numeric:tabular-nums;max-width:100%;overflow-wrap:anywhere}
+.row{border-top:1px solid var(--line);padding:.75rem 0}
+.row:first-of-type{border-top:none;padding-top:.25rem}
+.row .top{display:flex;gap:.55rem;align-items:baseline;flex-wrap:wrap}
 .row .q{color:var(--muted);font-size:.85rem;margin:.15rem 0 .3rem}
-.rec{font-size:.9rem;color:var(--accent);margin-top:.25rem}
+.rec{font-size:.9rem;color:var(--accent);margin-top:.3rem}
 .muted{color:var(--muted)}
 .small{font-size:.85rem}
-pre.doc{white-space:pre-wrap;word-wrap:break-word;font:13px/1.6 ui-monospace,SFMono-Regular,
-Menlo,Consolas,monospace;background:var(--chip);padding:.85rem;border-radius:8px;margin:.5rem 0 0;
-overflow-x:auto}
-.violation{border-left:3px solid var(--block);padding-left:.7rem;margin:.5rem 0}
+.nums{font-variant-numeric:tabular-nums}
+/* The message itself, in the one face reserved for a person's own words. */
+pre.doc{white-space:pre-wrap;word-wrap:break-word;font:15px/1.6 var(--prose);
+background:var(--chip);padding:.9rem 1rem;border-radius:6px;margin:.55rem 0 0;
+overflow-x:auto;max-width:62ch}
+.violation{border-left:2px solid var(--block);padding-left:.7rem;margin:.55rem 0}
 .violation.review{border-color:var(--review)}
-footer{margin-top:3rem;color:var(--muted);font-size:.82rem;border-top:1px solid var(--line);padding-top:1rem}
+footer{margin-top:3rem;color:var(--muted);font-size:.82rem;border-top:1px solid var(--line);
+padding-top:1rem;max-width:68ch}
 """
 
 
@@ -233,8 +252,8 @@ def _variants(result: dict) -> str:
             f'{_chip(x["kind"], "review" if x["severity"] == "review" else "block")}'
             f'<p class="small">{escape(x["detail"])}</p><p>{_evidence(x["items"])}</p></div>'
             for x in check.get("violations", []))
-        moved = "".join(f"<li>{escape(m)}</li>" for m in dm.get("moved", []))
-        held = "".join(f"<li>{escape(h)}</li>" for h in dm.get("held", []))
+        moved = "".join(f'<li class="nums">{escape(m)}</li>' for m in dm.get("moved", []))
+        held = "".join(f'<li class="nums">{escape(h)}</li>' for h in dm.get("held", []))
         fid = "".join(
             f'<li>{"✓" if f["met"] else "✗"} {escape(f["expected"])} ({escape(f["observed"])})</li>'
             for f in dm.get("shade_fidelity", []))
@@ -250,7 +269,7 @@ def _variants(result: dict) -> str:
 <ul class="tight small">{held or '<li class="muted">no invariant signals in the base</li>'}</ul>
 <h2>Did it do what the shade claims</h2>
 <ul class="tight small">{fid or '<li class="muted">no shade declared</li>'}</ul>
-<p class="small muted">{length.get('words_before', '?')} → {length.get('words_after', '?')} words ·
+<p class="small muted nums">{length.get('words_before', '?')} → {length.get('words_after', '?')} words ·
 similarity {dm.get('similarity', '?')}</p></div>""")
     return _section("Variants and difference maps", f'<div class="grid two">{"".join(cards)}</div>')
 
