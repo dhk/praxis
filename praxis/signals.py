@@ -90,16 +90,32 @@ CONSEQUENTIAL = re.compile(
     r"|missed?\s+(?:commitment|deadline|target)|revenue|churn|liabilit\w+)", FLAGS)
 
 #: A route for the reader when the normal path fails.
+#:
+#: `if this is not …` was once an alternative on its own, which matched
+#: "Let me know if this is not clear." — so a courtesy sentence satisfied
+#: the escalation requirement of a safety-critical message. The
+#: conditional forms now have to name the failure they are a route out of.
 ESCALATION = re.compile(
-    r"\b(?:escalat\w+|on[- ]?call|page (?:me|the|us)|if (?:this|it|you) (?:is |are )?not"
-    r"|if (?:this|that) (?:does not|doesn't) |otherwise contact|fall ?back"
-    r"|failing that|in the meantime, contact)\b", FLAGS)
+    r"\b(?:escalat\w+|on[- ]?call|page (?:me|the|us)\b|otherwise contact"
+    r"|fall ?back to|failing that|in the meantime,? contact"
+    r"|if (?:it|this|that) (?:is )?(?:still )?(?:un|not )?resolved"
+    r"|if (?:you|we) (?:cannot|can't|are unable to) reach)\b", FLAGS)
 
-#: A commitment to say more, and when.
+#: A commitment to say more, *and when*.
+#:
+#: The time is the requirement — `strategy.REQUIREMENTS` asks a crisis
+#: message for "a named next update time", and an earlier version matched
+#: "I will update the runbook.", which names neither an update to the
+#: reader nor a time. Every alternative here carries a temporal anchor.
+_WHEN = (r"(?:by|at|before|within|every|each)\b|tomorrow|today|tonight|hourly|daily"
+         r"|EOD\b|COB\b|end of (?:day|week)|\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)"
+         r"|mon|tue|wed|thu|fri|sat|sun")
 UPDATE_CADENCE = re.compile(
-    r"\b(?:next update|further update|(?:I|we)(?:'ll| will) (?:update|follow up|report back|write again)"
-    r"|updates? (?:at|by|every|to follow)|another update|more (?:detail|information) (?:at|by|on)"
-    r"|update (?:you|again))\b", FLAGS)
+    r"\b(?:next update\b[^.\n]{0,40}?(?:" + _WHEN + r")"
+    r"|(?:I|we)(?:'ll| will) (?:update|report back|follow up|write again)\b"
+    r"[^.\n]{0,60}?(?:" + _WHEN + r")"
+    r"|(?:another|further) update\b[^.\n]{0,40}?(?:" + _WHEN + r")"
+    r"|updates? (?:every|hourly|daily)\b)", FLAGS)
 
 #: Structural affordances that let a reader scan instead of read.
 SCAN = re.compile(r"^\s{0,3}(?:[-*+]\s|\d+[.)]\s|#{1,6}\s)|\*\*[^*]+\*\*", re.MULTILINE)

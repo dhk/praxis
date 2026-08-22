@@ -12,6 +12,7 @@ suite reported success having run neither.
 """
 
 import json
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -140,6 +141,80 @@ def test_the_viewer_refuses_to_bind_a_public_interface():
     from praxis.mcp.serve import serve
     with pytest.raises(SystemExit, match="loopback only"):
         serve(host="0.0.0.0")
+
+
+def test_concurrent_allocation_never_hands_out_the_same_id():
+    """The atomic-reservation fix was verified with a sequential loop,
+    which cannot fail the way the bug did. This runs the allocation the
+    way the race actually happens."""
+    with ThreadPoolExecutor(max_workers=16) as pool:
+        ids = list(pool.map(lambda _: store.blank("Release delay")["id"], range(64)))
+    assert len(set(ids)) == 64, "an id was handed out twice"
+    assert all(len(i) <= 48 for i in ids)
+
+
+def test_concurrent_allocation_of_a_maximum_length_title():
+    """The two fixes interact: the truncation bug and the race both live in
+    `new_id`, and the suffixed stem is what keeps them from colliding."""
+    title = "i wanted to flag something from our review of the release plan"
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        ids = list(pool.map(lambda _: store.blank(title)["id"], range(32)))
+    assert len(set(ids)) == 32
+
+
+def test_a_reserved_but_unwritten_session_reports_itself_clearly():
+    """It used to surface as a JSONDecodeError from inside json.loads."""
+    reserved = store.blank("Never saved")
+    with pytest.raises(FileNotFoundError, match="reserved but never saved"):
+        store.load(reserved["id"])
+
+
+@pytest.mark.parametrize("host", ["0.0.0.0", "", "::", "0.0.0.0.0", "example.com",
+                                  "10.0.0.1", "255.255.255.255"])
+def test_the_viewer_refuses_every_non_loopback_form(host):
+    """The first guard was an allowlist of spellings that included `""` —
+    and `bind(("", port))` binds every interface, so the one string most
+    likely to be passed accidentally walked straight through it."""
+    from praxis.mcp.serve import serve
+    with pytest.raises(SystemExit, match="loopback only"):
+        serve(host=host)
+
+
+@pytest.mark.parametrize("host", ["127.0.0.1", "::1", "localhost", "127.0.0.2"])
+def test_the_viewer_still_accepts_loopback(host):
+    from praxis.mcp.serve import _is_loopback
+    assert _is_loopback(host)
+
+
+@needs_mcp
+def test_a_rejected_contract_creates_no_session():
+    """The reply used to carry a session id for a zero-byte file, and tell
+    the client to call design_update on it."""
+    result = mcp_server.design_open("We may need help.", stated={"stakes": "enormous"})
+    assert "error" in result
+    assert "session" not in result
+    assert store.listing() == []
+
+
+@needs_mcp
+def test_three_unmarked_versions_are_accepted():
+    """The first is the recommendation, so two alternatives — which is the
+    bound. Counting unmarked entries rejected the documented shape."""
+    opened = mcp_server.design_open("Costs rose 40% and the estimate is preliminary.")
+    result = mcp_server.design_shade(opened["session"], [
+        {"text": "Costs rose 40%. The estimate is preliminary."},
+        {"text": "The estimate is preliminary; costs rose 40%."},
+        {"text": "Preliminary estimate: costs rose 40%."}])
+    assert "error" not in result
+    assert [v["role"] for v in result["versions"]] == ["recommended", "alternative", "alternative"]
+
+
+@needs_mcp
+def test_four_versions_are_still_refused():
+    opened = mcp_server.design_open("Costs rose 40%.")
+    result = mcp_server.design_shade(opened["session"], [
+        {"text": "a"}, {"text": "b"}, {"text": "c"}, {"text": "d"}])
+    assert "at most 2" in result["error"]
 
 
 @needs_mcp
