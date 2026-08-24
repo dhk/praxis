@@ -27,6 +27,8 @@ const EXAMPLES = [
   { id: 'drift-study', label: 'Model drift study', pack: DEFAULT_PACK },
   { id: 'claude-skill', label: 'Claude skill (SKILL.md)', pack: 'claude_skill_authoring' },
   { id: 'resume', label: 'Resume', pack: 'resume_writing' },
+  { id: 'repo-docs', label: 'Repo docs (README)', pack: 'repo_docs' },
+  { id: 'pm-writing', label: 'Product brief (PM writing)', pack: 'pm_writing' },
 ];
 
 const SAFETY_LABEL = { safe: 'SAFE', low_risk: 'LOW RISK', review: 'REVIEW' };
