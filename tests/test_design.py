@@ -846,3 +846,63 @@ def test_mid_sentence_emphasis_is_not_scanning_structure():
     assert signals.find("scan", "**Decision required:** confirm the approach.")
     assert signals.find("scan", "- **It protects reporting.** The pipeline stays put.")
     assert signals.find("scan", "## Recommendation")
+
+
+# --- the browser viewer's data contract --------------------------------
+#
+# web/src/design.js reads these shapes directly. A rename here is invisible
+# until someone loads the page, so the shapes are asserted where the engine
+# lives rather than discovered in a web worker.
+
+def test_the_viewer_reads_the_contract_as_sections_and_provenance():
+    from praxis.contract import build, FIELDS
+    from praxis.design import design
+
+    result = design("A note.", build({"stakes": "high"}), mode="evaluate")
+    contract = result["contract"]
+    assert set(contract) >= {"sections", "provenance"}
+    # Values are nested under their section, which is how the grid groups them.
+    assert contract["sections"]["situation"]["stakes"] == "high"
+    assert contract["provenance"]["stakes"] == "stated"
+    sections = {f.section for f in FIELDS}
+    assert set(contract["sections"]) <= sections
+
+
+def test_the_viewer_reads_transform_from_its_own_subobject():
+    from praxis.contract import build
+    from praxis.design import design
+
+    draft = "We should probably move the pipeline. It would be good to hear back."
+    result = design(draft, build({"stakes": "high", "intent": "request"}), mode="transform")
+    assert "transform" in result, "transform hangs off the result, not the root"
+    block = result["transform"]
+    assert set(block) >= {"edits", "folded_into", "no_edit_for", "blocked", "protected"}
+
+    for edit in block["edits"]:
+        assert set(edit) >= {"kind", "dimension", "instruction", "at", "where", "blocked_by"}
+        # An insert carries `at`; anything changing existing words carries a span.
+        assert edit["at"] is not None or edit["where"] is not None
+        if edit["where"]:
+            assert set(edit["where"]) >= {"start", "end", "text"}
+        # blocked_by is a list, so truthiness alone would call every edit blocked.
+        assert isinstance(edit["blocked_by"], list)
+
+
+def test_the_viewer_reads_the_reasons_the_depth_row_counts():
+    """Depth 01's meta says "N reasons"; N has to come from somewhere real."""
+    from praxis.contract import build
+    from praxis.design import design
+
+    result = design("A note.", build({"intent": "request", "time_available": "low"}))
+    assert isinstance(result["strategy"]["because"], list)
+    assert result["strategy"]["because"], "a chosen structure with no stated reason"
+
+
+def test_the_answer_is_the_brief_not_the_headline():
+    """`headline` is a dense status line. The h1 is the answer a person reads."""
+    from praxis import brief
+    from praxis.contract import build
+    from praxis.design import design
+
+    result = design("We should move it.", build({"stakes": "high", "intent": "request"}))
+    assert brief.answer(result) != result["headline"]
