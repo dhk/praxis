@@ -31,7 +31,8 @@ def run(input_path: Path, out_dir: Path, pack_id: str = DEFAULT_PACK_ID, prompt:
     print(f"Words: {result['metrics']['before']['words']} -> {result['metrics']['after']['words']}")
 
 def design(input_path: Path | None, out: Path, values: list[str], show_why: bool = False,
-           as_transform: bool = False, voice_path: Path | None = None) -> None:
+           as_transform: bool = False, voice_path: Path | None = None,
+           commission_to: Path | None = None) -> None:
     """Analyse a communication situation and write the artifact page.
 
     Answer-first, like the MCP surface: the shape and what is wrong,
@@ -42,6 +43,7 @@ def design(input_path: Path | None, out: Path, values: list[str], show_why: bool
     from . import brief
     from .contract import build, ContractError
     from .design import design as run_design
+    from .perkins import commission
     from .render import document
 
     stated: dict = {}
@@ -75,6 +77,13 @@ def design(input_path: Path | None, out: Path, values: list[str], show_why: bool
     if show_why:
         print(f"\n{brief.why(result)}")
     print(f"\nWrote {out}")
+
+    # --commission writes the prompt rather than printing it: it is a file
+    # someone keeps and carries to a model, not something to read here.
+    if commission_to is not None:
+        commission_to.parent.mkdir(parents=True, exist_ok=True)
+        commission_to.write_text(commission(result, draft), encoding="utf-8")
+        print(f"Wrote {commission_to}")
 
 
 def corpus(show_prompt: bool, detector: str | None, out: Path | None) -> None:
@@ -129,6 +138,9 @@ def main() -> None:
     design_p.add_argument("--voice", type=Path, metavar="PATH",
                           help="a sample of your own writing, to check which habits "
                                "the draft keeps")
+    design_p.add_argument("--commission", type=Path, metavar="PATH", dest="commission",
+                          help="also write a prompt for this situation, to carry to "
+                               "whatever model you use (praxis never sends it)")
 
     serve_p = sub.add_parser("serve", help="browse saved design sessions locally")
     serve_p.add_argument("--host", default="127.0.0.1")
@@ -150,7 +162,8 @@ def main() -> None:
     if args.cmd == "run":
         run(args.input, args.out, args.pack, args.prompt)
     elif args.cmd == "design":
-        design(args.input, args.out, args.values, args.why, args.transform, args.voice)
+        design(args.input, args.out, args.values, args.why, args.transform, args.voice,
+               args.commission)
     elif args.cmd == "serve":
         from .mcp.serve import serve as serve_viewer
         serve_viewer(args.host, args.port)

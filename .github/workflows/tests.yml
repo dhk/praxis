@@ -118,6 +118,15 @@ jobs:
             --set sensitivity=high --set power_distance=upward \
             --out artifacts/design.html
           test -s artifacts/design.html
+
+      - name: Perkins commissions a prompt, stamped with its rule surface
+        run: |
+          python -m praxis design examples/decision_request/input.md \
+            --set intent=request --set stakes=high --set power_distance=upward \
+            --out artifacts/design.html --commission artifacts/prompt.md
+          test -s artifacts/prompt.md
+          grep -q "You are not rewriting it" artifacts/prompt.md
+          grep -q "^\`praxis .* rules " artifacts/prompt.md
           python -m praxis design --set intent=repair --out artifacts/plan.html
           test -s artifacts/plan.html
 

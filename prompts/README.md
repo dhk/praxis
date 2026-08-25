@@ -74,10 +74,17 @@ the generator produces a prompt from your situation at the moment you ask,
 and the MCP server keeps the engine in the loop while you write.
 
 A machine-checkable version stamp belongs in the prompt body, not in this
-file — a stamp here does not help anyone who copied the prompt. It is
-deliberately not in this pull request, because adding it means changing the
-generator that produces both these files and the study viewer's Review
-Prompt tab, and those two must not diverge.
+file — a stamp here does not help anyone who copied the prompt. These eleven
+do not carry one, and cannot without also changing the study viewer's Review
+Prompt tab, which produces the identical text.
+
+**Perkins does not regenerate these.** It reads praxis's own contract and
+engine — the recommended structure, what the situation obliges, the ten
+dimensions, the questions still material — where these eleven read the
+alexandria study's per-genre weights. Different source, different prompt,
+and neither produces the other. Prompts Perkins writes carry
+`praxis <version> · rules <fingerprint>`, so a copy can be told from a
+current one; these carry the study's provenance in prose instead.
 
 ## How these were produced
 
