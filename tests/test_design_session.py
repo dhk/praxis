@@ -341,3 +341,54 @@ def test_the_server_exposes_its_own_vocabulary():
     schema = mcp_server.design_schema()
     assert {"fields", "structures", "shades"} == set(schema)
     assert any(f["name"] == "stakes" for f in schema["fields"])
+
+@needs_mcp
+def test_the_commission_carries_the_prompt_and_its_stamp():
+    opened = mcp_server.design_open("We may need help with the migration.",
+                                    stated={"intent": "request", "stakes": "high"})
+    reply = mcp_server.design_commission(opened["session"])
+    from praxis import perkins
+    assert reply["stamp"] == perkins.stamp()
+    assert reply["stamp"] in reply["prompt"]
+    assert "You are not rewriting it" in reply["prompt"]
+    for rule, _ in perkins.REFUSALS:
+        assert rule in reply["prompt"]
+    assert reply["next_step"]
+
+
+@needs_mcp
+def test_a_writer_can_get_the_standard_without_sending_their_draft():
+    # The whole point of the no-install path is that some drafts may not
+    # leave the machine. A commission that always embeds the text cannot
+    # serve that, and silently embedding it would be worse than refusing.
+    secret = "The acquisition closes on Tuesday and nobody outside knows."
+    opened = mcp_server.design_open(secret, stated={"intent": "inform"})
+    withheld = mcp_server.design_commission(opened["session"], include_draft=False)
+    assert secret not in withheld["prompt"]
+    assert withheld["draft_included"] is False
+    included = mcp_server.design_commission(opened["session"])
+    assert secret in included["prompt"]
+    assert included["draft_included"] is True
+
+
+@needs_mcp
+def test_the_commission_recomputes_nothing_the_session_did_not_say():
+    # store.result_for is the one place a session becomes an analysis.
+    # A commission that ran its own would drift from every other reply.
+    opened = mcp_server.design_open("We may need help.",
+                                    stated={"intent": "request", "stakes": "high"})
+    record = store.load(opened["session"])
+    result = store.result_for(record)
+    reply = mcp_server.design_commission(opened["session"])
+    assert reply["headline"] == result["headline"]
+    assert reply["questions_outstanding"] == result["questions_outstanding"]
+
+
+@needs_mcp
+def test_a_missing_session_names_what_exists_here_too():
+    # Same failure the store gives everywhere else: the error says which
+    # sessions do exist, so a mistyped id is self-correcting rather than a
+    # dead end.
+    store.save(store.blank("Only one"))
+    with pytest.raises(FileNotFoundError, match="only-one"):
+        mcp_server.design_commission("nope")

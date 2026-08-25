@@ -430,6 +430,53 @@ def corpus_commission(detector: str = "") -> dict:
 
 
 @mcp.tool()
+def design_commission(session_id: str, mode: str = "auto",
+                      include_draft: bool = True) -> dict:
+    """Get the review prompt this session's situation commissions.
+
+    praxis has decided what the message must do; this packages that
+    decision as instructions a model can work from — the shape and why,
+    what the message owes at this level of risk, the ten dimensions with
+    praxis's own reading attached, and the one question still material.
+
+    Two uses, same text. **Adopt it** to review the writer's draft here
+    under this standard, which is what the server is for. Or **hand it
+    over** when the writer wants the standard somewhere praxis is not: a
+    different model, a colleague, an environment that will not run an MCP
+    server. Say which you are doing rather than doing both silently.
+
+    Unlike `corpus_commission`, answering this yourself is the point. The
+    corpus needs a second opinion because a model wrote the detectors;
+    a review needs a reader, and you are it.
+
+    The prompt forbids rewriting the prose, scoring the draft, guessing at
+    what it was not told, and asking a form. Those are the product. If you
+    adopt the prompt you adopt the refusals with it.
+
+    `include_draft=False` leaves the draft out, for a writer who wants the
+    standard without sending their text anywhere.
+    """
+    from praxis import perkins
+
+    record = store.load(session_id)
+    result = store.result_for(record, mode=mode)
+    draft = record.get("draft", "") if include_draft else ""
+    prompt = perkins.commission(result, draft)
+    adopted = "Review the draft against it now, and keep its refusals."
+    handed = ("Give the writer `prompt` verbatim to use wherever they like. "
+              "It needs neither praxis nor this server.")
+    return {
+        "session": record["id"],
+        "prompt": prompt,
+        "stamp": perkins.stamp(),
+        "headline": result["headline"],
+        "questions_outstanding": result["questions_outstanding"],
+        "draft_included": bool(draft.strip()),
+        "next_step": f"{adopted} Or: {handed}",
+    }
+
+
+@mcp.tool()
 def design_list() -> dict:
     """List saved design sessions, most recently touched first."""
     return {"sessions": store.listing(), "workspace": str(store.home())}

@@ -173,8 +173,18 @@ python -m praxis serve      # browse saved sessions at 127.0.0.1:8765
 ```
 
 The server exposes `design_open`, `design_update`, `design_detail`,
-`design_transform`, `design_shade`, `design_render`, `design_list`, and
-`design_schema`.
+`design_transform`, `design_shade`, `design_render`, `design_commission`,
+`design_list`, `design_schema`, and `corpus_commission`.
+
+`design_commission` is the bridge back to the no-install path. It returns
+the review prompt this situation commissions — the shape and why, what the
+message owes, the ten dimensions with praxis's reading attached, and the
+question still material. Your model can adopt it to review the draft in
+place, or hand it to the writer to use where praxis is not: another model,
+a colleague, an environment that will not run a server. Pass
+`include_draft=False` for a draft that should not leave the machine.
+Every prompt is stamped with the rule surface it came from, so a copy kept
+for months can be told from a current one.
 
 It is answer-first and conversational. Paste a draft and the first call
 answers immediately — there is no interview to get through:
