@@ -127,9 +127,23 @@ full-strength `--text` used by Pass/Gap, so the grid reads as three tiers of con
 
 ### 4.2 Depth 03 — the contract
 
-Seven groups (Reader, Intent, Stakes, Constraints, Relationship, Timing, Form), three
-fields each, in a `repeat(auto-fit, minmax(300px, 1fr))` grid, `gap: 32px`. Group names
-are mono uppercase cobalt over a hairline.
+Seven groups in a `repeat(auto-fit, minmax(300px, 1fr))` grid, `gap: 32px`. Group names are
+mono uppercase cobalt over a hairline. Use the engine's own sections and counts —
+`contract.FIELDS`, 21 fields across 7 sections:
+
+| Section | Fields |
+| --- | --- |
+| artifact | 3 |
+| situation | 4 |
+| reader | 5 |
+| outcome | 3 |
+| relationship | 2 |
+| evidence | 2 |
+| constraints | 2 |
+
+Groups are **not** uniform height. Do not lay this out as a fixed row of equal cards or
+assume a shared baseline — `auto-fit` columns with independent group heights, and let the
+grid ragged-bottom. A five-field group next to a two-field group is the normal case.
 
 Each field is a clickable row: mono key (`min-width: 116px`), value, then a right-aligned
 8px dot.
@@ -140,8 +154,13 @@ Each field is a clickable row: mono key (`min-width: 116px`), value, then a righ
 Clicking a row flips it between stated and inferred. A legend above the grid explains both
 dots; the inferred one is labelled "Inferred · click to correct".
 
-Field names are placeholders standing in for whatever the real schema exposes. **Do not
-ship these strings** — bind them to the actual contract fields.
+**Only 10 of the 21 fields have a closed domain.** Click-to-flip applies to all 21, but an
+option picker can only be offered for those ten; the remaining eleven are free text. The
+two affordances need to look different — a picker row opens a list of options, a free-text
+row opens an input. Do not render a fake picker for a field with no domain.
+
+Field *values* in the reference file are illustrative. The section and field names above
+are real; bind them to `contract.FIELDS` rather than retyping.
 
 ---
 
@@ -166,6 +185,25 @@ rather than at existing text.
 All markers are `<button>` elements with `font: inherit` and transparent backgrounds, so
 they sit in the text baseline without disturbing the line box. Hover shifts colour to
 `--accent` (or `--accent-orange` for cuts).
+
+### 5.0 The three outcomes of a reported gap
+
+Transform returns `folded_into` and `no_edit_for` alongside the edits. Every gap the
+evaluation reported resolves one of three ways, and all three must be visible or the
+engine's guarantee is invisible in the UI:
+
+1. **It produced an edit** — one of the five marker kinds below.
+2. **It folded into another edit** (`folded_into`) — not a new marker kind. It is a line
+   inside the target edit's annotation: mono `Also covers · <gap name>`, in `--text-dim`,
+   under the reasoning. The change-list row for that edit gets a `+n` after its summary.
+3. **It produced no edit** (`no_edit_for`) — has no location in the draft, so it cannot be
+   an inline marker. It goes in a **footer under the change list** in the right pane:
+   a hairline rule, a mono `Reported · no edit` label in `--text-dim`, then one row per
+   gap naming it and why nothing was changed.
+
+The footer is not an error state and must not be styled as one — no orange, no border-left.
+It is the engine declining to invent an edit, which is the same refusal the blocked block
+makes, and it reads as completeness rather than failure.
 
 ### 5.1 Annotations
 
@@ -319,9 +357,11 @@ needs a translucent fill that no existing token provides.
 
 ## 10. Content rules
 
-- **Placeholder content.** The draft is a Pyodide-bundle approval email; field names,
-  counts and char offsets are illustrative. No real schema is asserted anywhere. Replace
-  all of it.
+- **Placeholder content.** The draft is a Pyodide-bundle approval email; field values and
+  char offsets are illustrative. Replace all of it.
+- **Verified against the engine:** `evaluation.dimensions` is exactly ten, with statuses
+  exactly `pass` / `gap` / `unknown`. `contract.FIELDS` is 21 fields across the 7 sections
+  named in §4.2. The depth 01/02/04 row meta counts in the reference file match.
 - **Never invent a field name.** If the engine does not expose it, it does not appear.
 - **Voice** is DHK's: declarative, compressed, no hedging. Claim then turn. The refusals
   are the tonal core — "I will not guess", "I have not made it and I will not choose for
@@ -341,74 +381,46 @@ needs a translucent fill that no existing token provides.
   collapse under the draft below roughly 900px.
 - Move markers show origin but not destination. A leader line or a ghost at the target
   would close that.
+- The free-text editor for the eleven open-domain contract fields (§4.2).
+- `folded_into` / `no_edit_for` are specified in §5.0 but not rendered in the reference
+  file — the two-pane currently shows edits only.
 
 ---
 
-## 12. Binding to the engine
+## 12. Where each part comes from
 
-*Added in this repository, not part of the design document. §10 requires every
-placeholder to be replaced and forbids inventing a field name, so these are the
-values the implementer binds to. Verified against `praxis.design.design()` at the
-time of filing; re-derive rather than trust this table if the engine has moved.*
+*Added in this repository, not part of the design document. §10 forbids inventing a
+field name, so this maps each surface to the call it binds to. The counts and section
+names it once carried now live in §4.2 and §10, where the spec itself states them.
+Re-derive rather than trust this if the engine has moved.*
 
-Everything below comes out of one call — `design(draft, contract, variants, mode)`
-— which the browser worker already exposes as the `design` op alongside the
-`brief` renderings (`web/src/worker.js`).
+Everything comes out of one call — `design(draft, contract, variants, mode)` — which the
+browser worker exposes as the `design` op alongside the `brief` renderings
+(`web/src/worker.js`). The worker's ready message ships the field catalogue (`name`,
+`section`, `question`, `options`, `note`, `kind`), so no vocabulary is restated in the UI
+and §4.2's picker-versus-free-text split reads straight off `options`.
 
-**Depth 02 — the scorecard.** `result["evaluation"]["dimensions"]`, a list of ten,
-which is exactly the "10 dimensions" the spec assumes. Each carries `dimension`,
-`question`, `status`, `finding`, `evidence`, `recommendation`. `status` is one of
-`pass` / `gap` / `unknown` — the spec's three verdicts, unchanged. The ten:
+| Surface | Source |
+| --- | --- |
+| The answer | `brief.answer(result)` |
+| Depth 01 | `brief.why(result)`; `result["strategy"]` names the structure and runners-up |
+| Depth 02 | `result["evaluation"]["dimensions"]` |
+| Depth 03 | `result["contract"]`, whose values carry `stated` or `inferred` |
+| The question card | `brief.next_question(result)` — `ask`, `field`, `options`, `changes` |
+| Depth 04 / transform | `mode="transform"`, plus `brief.edits(result)` |
 
-`outcome_clarity`, `audience_fit`, `structural_fit`, `evidence_fit`,
-`uncertainty_integrity`, `risk_calibration`, `relationship_fit`, `medium_fit`,
-`voice_integrity`, `actionability`.
+The ten dimensions, in the order the engine returns them: `outcome_clarity`,
+`audience_fit`, `structural_fit`, `evidence_fit`, `uncertainty_integrity`,
+`risk_calibration`, `relationship_fit`, `medium_fit`, `voice_integrity`, `actionability`.
+Each carries `question`, `status`, `finding`, and `evidence` — `finding` is the cell's
+sentence and `evidence` is the span it saw, so a `pass` or `gap` with no evidence attached
+should not render as one.
 
-`finding` is the cell's sentence and `evidence` is the span it saw — a `pass` or a
-`gap` with no evidence attached should not render as one.
+`changes` on a question is what §7 requires the card to name as its consequence.
+**The counter must use `result["questions_outstanding"]`**, the true total — not the length
+of `result["questions"]`, which is capped for display. A count that does not move as the
+writer answers reads as no progress at all.
 
-**Depth 03 — the contract.** `praxis.contract.FIELDS` is 21 fields in 7 sections,
-matching the spec's "21 fields" and "seven groups". The section *names* differ from
-the placeholders and the counts are not three each:
-
-| Section | Fields |
-|---|---|
-| `artifact` | 3 |
-| `situation` | 4 |
-| `reader` | 5 |
-| `outcome` | 3 |
-| `relationship` | 2 |
-| `evidence` | 2 |
-| `constraints` | 2 |
-
-So the grid must not assume a uniform group height. Provenance for the stated/inferred
-dot is `result["contract"]`, whose values carry `stated` or `inferred` — the engine's
-own distinction, not a UI convention.
-
-**Only 10 of the 21 fields have a closed domain** (`praxis.contract.SELECTORS`); the
-other 11 are free text. §4.2's click-to-flip works for both, but an option picker
-exists only for those ten. The worker's ready message ships the full catalogue —
-`name`, `section`, `question`, `options`, `note`, `kind` — so no vocabulary needs
-restating in the UI.
-
-**Depth 01 — why this shape.** `brief.why(result)`, with `result["strategy"]`
-carrying the chosen structure and the runners-up.
-
-**The question card.** `brief.next_question(result)` returns `ask`, `field`,
-`options`, and `changes` — `changes` is what §7 requires the card to name as the
-consequence. The counter must use `result["questions_outstanding"]`, the true total,
-not the length of the capped display list in `result["questions"]`.
-
-**The transform gate.** `mode="transform"`, which `mode="auto"` never selects — the
-engine enforces §1's second rule independently of the UI, and rejects a transform
-with no draft rather than silently falling back.
-
-**Edit markers.** Transform mode returns located `Edit` records with character
-offsets and a `kind` of insert / revise / move / cut, plus `blocked_by` where an
-edit collides with a protected span — §5's five kinds are the engine's own set.
-`folded_into` and `no_edit_for` also come back and have no home in this spec: every
-reported gap must produce an edit, fold into one, or be named, so a gap that did
-none of those needs somewhere to appear.
-
-**Protected spans** come from the writer's declared constraints, which is why §5.3
-colours them as asserted rather than derived.
+`mode="auto"` never selects transform, so §1's second rule is enforced by the engine
+rather than by the UI, and a transform with no draft is rejected rather than silently
+falling back to compose.
