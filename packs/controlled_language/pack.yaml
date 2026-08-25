@@ -1,0 +1,30 @@
+id: controlled_language
+version: 0.1.0
+title: Controlled Language (STE100-derived)
+note: >-
+  Derived from ASD-STE100 (Simplified Technical English). Implements five
+  rules covering sentence length, hidden actors, compound instructions, and
+  plain-word substitution. Does NOT implement the STE100 Dictionary of
+  approved words, which is the core of the standard. This pack is not a
+  conformance check and a clean run is not a claim of STE100 conformance.
+transformations:
+  - id: CTL-001
+    title: Remove filler before an instruction
+    safety: safe
+    kind: phrase_delete
+  - id: CTL-002
+    title: Prefer the plainer word
+    safety: low_risk
+    kind: phrase_replace
+  - id: CTL-003
+    title: Flag sentences above the controlled-language limit
+    safety: review
+    kind: flag
+  - id: CTL-004
+    title: Flag a hidden actor
+    safety: review
+    kind: flag
+  - id: CTL-005
+    title: Flag a compound instruction
+    safety: review
+    kind: flag

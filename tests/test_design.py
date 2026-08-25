@@ -737,3 +737,172 @@ def test_mcp_subpackage_is_excluded_from_the_browser_bundle():
     build_script = Path("scripts/build_site.sh").read_text(encoding="utf-8")
     assert "cp praxis/*.py dist/py/praxis/" in build_script, \
         "the bundle copy is no longer a non-recursive glob; praxis/mcp may now leak into Pyodide"
+
+
+# --- the browser is a first-class surface, not a demo ------------------
+#
+# Not everyone using praxis has a model. A writer with only a browser must
+# get every decision the engine can make, so the worker's design path has
+# to return exactly what the library does — checked here by running the
+# worker's own Python, lifted out of the JavaScript file it lives in.
+
+def _worker_namespace() -> dict:
+    """Execute web/src/worker.js's PY_SETUP under CPython.
+
+    The setup block is a JS template literal, so `\\\\S` in the source is
+    `\\S` by the time Pyodide compiles it. Undoing that escaping is what
+    makes this the same code the browser runs rather than a copy of it.
+    """
+    source = Path("web/src/worker.js").read_text(encoding="utf-8")
+    start = source.index("const PY_SETUP = `") + len("const PY_SETUP = `")
+    end = source.index("`;", start)
+    setup = source[start:end].replace("\\\\", "\\")
+    namespace: dict = {}
+    exec(compile(setup, "worker.js:PY_SETUP", "exec"), namespace)
+    return namespace
+
+
+def test_the_worker_design_path_returns_what_the_library_returns():
+    """A browser-only writer must not get a reduced result."""
+    import json as json_mod
+    from praxis.contract import build
+    from praxis.design import design as run_design
+
+    ns = _worker_namespace()
+    draft = "Hi Priya,\n\nWe think we should probably move to the new pipeline.\n"
+    stated = {"stakes": "high", "intent": "request", "time_available": "low"}
+
+    from_worker = json_mod.loads(
+        ns["design_json"](draft, json_mod.dumps(stated), "auto", "", "")
+    )
+    direct = run_design(draft, build(stated), mode="auto")
+
+    ui = from_worker.pop("ui")
+    assert from_worker == json_mod.loads(json_mod.dumps(direct)), \
+        "the worker's design result diverges from design()"
+    # The renderings the UI needs are additive, never a substitute.
+    assert ui["answer"] and ui["progress"] and ui["html"]
+
+
+def test_the_worker_reports_a_writers_mistake_as_a_sentence():
+    """Transform with no draft is a mistake to explain, not a traceback."""
+    import json as json_mod
+    ns = _worker_namespace()
+
+    rejected = json_mod.loads(ns["design_json"]("", "{}", "transform", "", ""))
+    assert "draft" in rejected["error"]
+
+    bad_field = json_mod.loads(
+        ns["design_json"]("A note.", json_mod.dumps({"stakes": "galactic"}), "auto", "", "")
+    )
+    assert "error" in bad_field and "stakes" in bad_field["error"]
+
+
+def test_the_worker_offers_the_closed_domains_to_the_ui():
+    """A writer should pick from the domain, never guess the vocabulary."""
+    from praxis.contract import FIELDS
+
+    ns = _worker_namespace()
+    catalogue = {f["name"]: f for f in ns["field_catalogue"]()}
+    assert set(catalogue) == {f.name for f in FIELDS}
+    assert catalogue["stakes"]["options"], "a closed domain reached the UI empty"
+    assert catalogue["stakes"]["question"] and catalogue["stakes"]["kind"] == "text"
+    assert catalogue["genre"]["options"] == [], "a free-text field claimed a domain"
+
+
+# --- defects the mechanism grid found ---------------------------------
+#
+# One source message rendered through six mechanisms by four models
+# (dhk-website, src/data/writing-mechanism-comparison.ts). Facts and the
+# required action were held constant by the prompt, so anything praxis
+# reported as lost was either a real loss or a bad detector. All three of
+# these were bad detectors — and all three were in the detectors that had
+# no labelled example, which is the argument for the corpus in one line.
+
+def test_a_determiner_does_not_hide_a_deadline():
+    from praxis import signals
+    assert signals.find("deadline", "Confirmation is required by this Friday.")
+    assert signals.find("deadline", "Please confirm by Friday.")
+    assert signals.find("deadline", "Confirm by next Tuesday.")
+    # The boundary the pattern already defended stays defended.
+    assert not signals.find("deadline", "The migration slipped by 5 days.")
+    assert not signals.find("deadline", "Revenue rose by 12 percent.")
+
+
+def test_reasoning_is_not_evidence():
+    """'Based on the risks' names nothing a reader could go and check."""
+    from praxis import signals
+    assert not signals.find(
+        "evidence", "Based on the risks and the time remaining, I think we should move."
+    )
+    assert signals.find("evidence", "The logs show a spike in failed writes.")
+    assert signals.find("evidence", "According to the Q3 close report, the gap widened.")
+
+
+def test_mid_sentence_emphasis_is_not_scanning_structure():
+    """MEANINGS['scan'] excluded this in prose while the pattern matched it."""
+    from praxis import signals
+    assert not signals.find("scan", "This is **very** important to the team.")
+    assert signals.find("scan", "**Decision required:** confirm the approach.")
+    assert signals.find("scan", "- **It protects reporting.** The pipeline stays put.")
+    assert signals.find("scan", "## Recommendation")
+
+
+# --- the browser viewer's data contract --------------------------------
+#
+# web/src/design.js reads these shapes directly. A rename here is invisible
+# until someone loads the page, so the shapes are asserted where the engine
+# lives rather than discovered in a web worker.
+
+def test_the_viewer_reads_the_contract_as_sections_and_provenance():
+    from praxis.contract import build, FIELDS
+    from praxis.design import design
+
+    result = design("A note.", build({"stakes": "high"}), mode="evaluate")
+    contract = result["contract"]
+    assert set(contract) >= {"sections", "provenance"}
+    # Values are nested under their section, which is how the grid groups them.
+    assert contract["sections"]["situation"]["stakes"] == "high"
+    assert contract["provenance"]["stakes"] == "stated"
+    sections = {f.section for f in FIELDS}
+    assert set(contract["sections"]) <= sections
+
+
+def test_the_viewer_reads_transform_from_its_own_subobject():
+    from praxis.contract import build
+    from praxis.design import design
+
+    draft = "We should probably move the pipeline. It would be good to hear back."
+    result = design(draft, build({"stakes": "high", "intent": "request"}), mode="transform")
+    assert "transform" in result, "transform hangs off the result, not the root"
+    block = result["transform"]
+    assert set(block) >= {"edits", "folded_into", "no_edit_for", "blocked", "protected"}
+
+    for edit in block["edits"]:
+        assert set(edit) >= {"kind", "dimension", "instruction", "at", "where", "blocked_by"}
+        # An insert carries `at`; anything changing existing words carries a span.
+        assert edit["at"] is not None or edit["where"] is not None
+        if edit["where"]:
+            assert set(edit["where"]) >= {"start", "end", "text"}
+        # blocked_by is a list, so truthiness alone would call every edit blocked.
+        assert isinstance(edit["blocked_by"], list)
+
+
+def test_the_viewer_reads_the_reasons_the_depth_row_counts():
+    """Depth 01's meta says "N reasons"; N has to come from somewhere real."""
+    from praxis.contract import build
+    from praxis.design import design
+
+    result = design("A note.", build({"intent": "request", "time_available": "low"}))
+    assert isinstance(result["strategy"]["because"], list)
+    assert result["strategy"]["because"], "a chosen structure with no stated reason"
+
+
+def test_the_answer_is_the_brief_not_the_headline():
+    """`headline` is a dense status line. The h1 is the answer a person reads."""
+    from praxis import brief
+    from praxis.contract import build
+    from praxis.design import design
+
+    result = design("We should move it.", build({"stakes": "high", "intent": "request"}))
+    assert brief.answer(result) != result["headline"]

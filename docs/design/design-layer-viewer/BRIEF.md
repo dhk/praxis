@@ -4,6 +4,8 @@
 
 **For:** a UI spec. **Status:** requirement, not a spec.
 **Deferred from:** wave 2 ([ROADMAP.md](../../../ROADMAP.md)).
+**The spec this asked for:** [`SPEC.md`](SPEC.md) — how the surface
+delivers it, and what each part binds to in the engine.
 
 ## The one-sentence job
 

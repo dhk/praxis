@@ -77,12 +77,21 @@ looks locally correct:
   running identical logic (verified by a browser-vs-CLI byte-identical
   check in the e2e suite — see Testing conventions below).
 
-Three packs exist today: `concise_scientific_writing` (default),
+Four packs exist today: `concise_scientific_writing` (default),
 `claude_skill_authoring` (rules grounded in the
-[skill-map](https://github.com/dhk/skill-map) corpus study), and
-`resume_writing`. Each has a matching `packs/<id>/pack.yaml` (kept in
-sync by hand, not read by the code) and a bundled example under
-`examples/`.
+[skill-map](https://github.com/dhk/skill-map) corpus study),
+`resume_writing`, and `controlled_language`. Each has a matching
+`packs/<id>/pack.yaml` (kept in sync by hand, not read by the code) and a
+bundled example under `examples/`.
+
+A pack is the **language** mechanism — which words, how long a sentence,
+who is named — where `strategy.py`'s structures are the **order**
+mechanism. `controlled_language` is the first pack named after an
+external standard (ASD-STE100), and it is titled "STE100-derived" rather
+than "STE100" on purpose: it implements the transferable rules and not
+the Dictionary of approved words, which is the core of the standard. A
+pack that borrows a standard's name owes the reader the part it does not
+implement, in the title, where every artifact carries it.
 
 `handoff.py`'s `render_prompt(result)` packages a run's `review`-flagged
 items into a self-contained Markdown prompt meant to be pasted into an

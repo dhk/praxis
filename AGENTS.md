@@ -150,6 +150,12 @@ extension point:
 If a change requires editing the generic machinery to add one domain
 rule, the table is the wrong shape — fix the table.
 
+Which table a new rule belongs in is decided by the axis its question
+sits on, not by preference (`VISION.md`, "What praxis is"). A rule about
+**language** — which word, how long a sentence, who is named — is a
+`Pack`. A rule about **order** — what comes first, what supports it — is
+a `Structure`. A rule that seems to need both is two rules.
+
 ## Judgment, and where it is allowed to live
 
 Praxis makes judgment calls. It must make them in **inspectable data**,

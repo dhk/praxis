@@ -94,11 +94,18 @@ def test_an_unmeasured_detector_is_not_reported_as_zero():
     """A detector with no labelled example has not scored 0%; it has not
     been measured, and printing them the same would be a lie about
     coverage."""
+    # Named against the corpus rather than hardcoded: which detectors lack
+    # an example changes every time the corpus grows, and a test that
+    # freezes the list fails on the good news as loudly as on the bad.
+    from praxis.signals import DETECTORS
     result = score(sources=ALL_SOURCES)
-    assert set(result["unmeasured"]) == {"evidence", "scan"}
-    text = report(result)
-    assert "no labelled example yet: evidence, scan" in text
-    # and a detector that *is* unmeasured prints as such rather than 0.000
+    labelled = {name for name, row in result["detectors"].items() if row["labelled"]}
+    assert set(result["unmeasured"]) == set(DETECTORS) - labelled
+    for name in result["unmeasured"]:
+        assert result["detectors"].get(name, {}).get("precision") is None
+    if result["unmeasured"]:
+        assert "no labelled example yet: " + ", ".join(sorted(result["unmeasured"])) in report(result)
+    # A detector that *is* unmeasured prints as such rather than 0.000.
     from praxis.measure import _show
     assert _show(None) == "unmeasured"
     assert _show(0.0) == "0.000"
@@ -163,12 +170,17 @@ def test_the_commission_marks_its_own_output_as_weaker_evidence():
 
 
 def test_an_unmeasured_signal_is_commissioned_first():
-    """`evidence` and `scan` have no labelled example; they need it most."""
+    """Whatever has no labelled example needs one most, so it leads."""
     from praxis.handoff import corpus_prompt
+    from praxis.measure import score
+
+    unmeasured = score(sources=ALL_SOURCES)["unmeasured"]
     text = corpus_prompt()
-    assert "## Signal: `evidence`" in text
-    assert "## Signal: `scan`" in text
-    assert "entirely unmeasured" in text
+    for name in unmeasured:
+        assert f"## Signal: `{name}`" in text
+        assert "entirely unmeasured" in text
+    # A commission is worth issuing whether or not anything is unmeasured.
+    assert "## Signal: `" in text
 
 
 def test_the_commission_shows_the_examples_it_already_has():

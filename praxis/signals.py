@@ -26,6 +26,10 @@ ASK = re.compile(
 #: A time by which something must happen.
 DEADLINE = re.compile(
     r"\b(?:by|before|no later than|due|deadline)\s+"
+    # "by this Friday" is the same deadline as "by Friday". Requiring the
+    # day to follow the preposition directly reported it missing, in real
+    # model output, on a message whose whole point was the Friday.
+    r"(?:(?:this|next|that|the|coming)\s+)?"
     r"(?:\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)|\d{4}-\d{2}-\d{2}"
     r"|today|tomorrow|tonight|EOD|COB|end of (?:day|week)|next week"
     r"|mon|tue|wed|thu|fri|sat|sun)\w*"
@@ -71,7 +75,11 @@ ACKNOWLEDGEMENT = re.compile(
 #: Visible support for a claim: measurement, source, or reference.
 EVIDENCE = re.compile(
     r"https?://\S+|\b\d+(?:\.\d+)?%|\b\$\d[\d,.]*|\b\d{4}-\d{2}-\d{2}\b"
-    r"|\b(?:according to|per the|based on|logs? show|data shows?|measured"
+    # "based on" was here and named nothing: "based on the risks and the
+    # time remaining" is how a writer signals reasoning, not a measurement,
+    # a source, or a reference. Every remaining alternative points at
+    # something the reader could go and check.
+    r"|\b(?:according to|per the|logs? show|data shows?|measured"
     r"|we (?:tested|measured|observed)|source:|see\s+\[)", FLAGS)
 
 #: A named party who will carry an action.
@@ -144,7 +152,13 @@ UPDATE_CADENCE = re.compile(
     + r"|updates?\s+" + _CADENCE + r")", FLAGS)
 
 #: Structural affordances that let a reader scan instead of read.
-SCAN = re.compile(r"^\s{0,3}(?:[-*+]\s|\d+[.)]\s|#{1,6}\s)|\*\*[^*]+\*\*", re.MULTILINE)
+# Bold is scanning structure only where it labels a block. Anchored at the
+# start of a line because unanchored it matched mid-sentence emphasis —
+# the exact boundary MEANINGS["scan"] already named as excluded. A bulleted
+# "- **Label:** …" still matches through the list alternative.
+SCAN = re.compile(
+    r"^\s{0,3}(?:[-*+]\s|\d+[.)]\s|#{1,6}\s)"
+    r"|^\s{0,3}\*\*[^*]+\*\*", re.MULTILINE)
 
 #: What each detector *claims* to find, and the boundary it must not
 #: cross — stated as prose, separately from the pattern that implements
