@@ -29,6 +29,7 @@ python -m praxis design draft.md --set stakes=high --set intent=request --set ti
 python -m praxis design draft.md --transform --set intent=request   # located changes, not a critique
 python -m praxis design draft.md --transform --voice past-emails.md # which habits the draft keeps
 python -m praxis design --set intent=repair            # plan before writing; no draft needed
+python -m praxis design draft.md --commission prompt.md  # Perkins: the prompt this situation commissions
 python -m praxis corpus                                 # score the detectors against corpus/
 python -m praxis corpus --prompt --detector escalation   # commission corpus work elsewhere
 python -m praxis serve                                  # browse saved sessions on 127.0.0.1:8765
