@@ -142,6 +142,12 @@ memo is supposed to contain, and says what is missing.
 
 - Genre packs: required elements per artifact type, joining the existing
   `Pack` idea to the contract.
+- The consideration axis — one shared vocabulary for what a situation
+  demands and what a mechanism supplies, wired to the alexandria
+  organizational-writing study, plus a dial the writer can move. Specified
+  in [`spec/RFC-0006`](spec/RFC-0006-consideration-axis.md), which also
+  states why importing those numbers is **not** the Wave 4 calibration
+  below.
 - Reader models as capabilities and constraints, never demographic
   presets — the shorthand-to-observable-need translation the research
   brief argues for.
