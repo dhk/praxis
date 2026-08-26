@@ -125,6 +125,11 @@ h1, h2, h3 { line-height: 1.2; text-wrap: pretty; }
   letter-spacing: 0.04em; color: var(--text);
 }
 .brand-sub { font-family: var(--font-mono); font-size: 13px; color: var(--text-dim); }
+.sibling {
+  font-family: var(--font-mono); font-size: 13px; color: var(--text-dim);
+  margin-left: 10px; border-bottom: 1px solid transparent;
+}
+.sibling:hover { color: var(--accent); border-bottom-color: var(--accent); }
 .spacer { flex: 1; }
 .mode-value {
   font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.06em;

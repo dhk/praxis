@@ -71,6 +71,15 @@ a:hover { color: var(--accent-hover); }
   background: var(--accent);
   margin-right: 8px;
 }
+/* The two layers are siblings, so the crumb that names this one links to
+   the other. Nothing else on either page pointed across, which left the
+   design layer deployed and reachable only by typing its URL. */
+.crumb .sibling {
+  color: var(--text-dim); margin-left: 10px;
+  border-bottom: 1px solid transparent;
+}
+.crumb .sibling:hover { color: var(--accent); border-bottom-color: var(--accent); }
+
 .hero h1 { font-size: 32px; font-weight: 600; line-height: 1.25; letter-spacing: -0.01em; }
 .lede { color: var(--text-muted); max-width: 62ch; }
 
