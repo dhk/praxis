@@ -906,3 +906,48 @@ def test_the_answer_is_the_brief_not_the_headline():
 
     result = design("We should move it.", build({"stakes": "high", "intent": "request"}))
     assert brief.answer(result) != result["headline"]
+
+def test_a_reason_carries_its_gloss_separately():
+    """Two fields, not one string, so each renderer picks its own format.
+
+    A single glossed string forced the sentence renderers to carry three
+    parentheticals inside one clause, which is what made the reasoning
+    unreadable at the surface where someone had explicitly asked for it.
+    """
+    from praxis import strategy
+    result = design("", build({"intent": "request", "stakes": "high",
+                               "time_available": "low", "authority": "decides"}))
+    reasons = result["strategy"]["because"]
+    assert reasons
+    for r in reasons:
+        assert set(r) == {"reason", "gloss"}
+        # The machine pair stays checkable against contract.py.
+        assert " = " in r["reason"] and r["reason"].endswith(" it")
+        # The gloss is the field's own question, not prose written elsewhere.
+        assert "?" not in r["gloss"]
+    assert strategy.inline(reasons[0]).startswith(reasons[0]["reason"])
+    assert reasons[0]["gloss"] in strategy.inline(reasons[0])
+
+
+def test_the_gloss_is_joined_from_the_contract_not_authored():
+    """One place holds what a field means. Two would drift."""
+    from praxis.contract import BY_NAME
+    from praxis.strategy import _reason
+    for name in ("time_available", "stakes", "intent"):
+        assert _reason(name, "low", 3)["gloss"] == \
+            BY_NAME[name].question.rstrip("?").strip().lower()
+    # A field the contract does not know glosses to nothing rather than raising.
+    assert _reason("not_a_field", "x", 1)["gloss"] == ""
+
+
+def test_the_sentence_renderer_stays_a_sentence():
+    """`--why` reads reasons only; the glosses live where there is room."""
+    from praxis import brief
+    result = design("", build({"intent": "request", "stakes": "high",
+                               "time_available": "low", "authority": "decides"}))
+    first = brief.why(result).splitlines()[0]
+    assert "was chosen because" in first
+    for r in result["strategy"]["because"]:
+        assert r["reason"] in first
+        assert f"({r['gloss']})" not in first, "a gloss leaked into the sentence"
+

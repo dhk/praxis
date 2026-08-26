@@ -29,6 +29,7 @@ from __future__ import annotations
 import hashlib
 
 from . import __version__
+from . import strategy as strategy_mod
 from .contract import FIELDS
 from .strategy import STRUCTURES
 
@@ -109,8 +110,11 @@ def commission(result: dict, draft: str = "") -> str:
             L.append("In this order: " + " → ".join(strategy["sequence"]) + ".")
         because = strategy.get("because") or []
         if because:
-            L += ["", "That shape follows from the situation, not from taste: "
-                  + "; ".join(because) + "."]
+            # A list, not a clause: each reason gets its gloss, which is what
+            # makes the machine pair readable to someone who has never seen
+            # the contract. Three of these inside one sentence do not fit.
+            L += ["", "That shape follows from the situation, not from taste:", ""]
+            L += [f"- {strategy_mod.inline(r)}" for r in because]
         confidence = strategy.get("confidence")
         runner = strategy.get("runner_up") or {}
         if confidence in ("low", "moderate") and runner.get("title"):

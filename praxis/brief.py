@@ -131,10 +131,14 @@ def progress(result: dict) -> str:
 def why(result: dict) -> str:
     """The reasoning, for someone who asked for it."""
     s = result["strategy"]
-    lines = [f"{s['title']} was chosen because {_join(s['because'])}."]
+    # The sentence takes `reason` alone: three glosses inside one clause is
+    # the format that made this unreadable. The glosses are in the list
+    # renderers, where they have room.
+    lines = [f"{s['title']} was chosen because {_join(r['reason'] for r in s['because'])}."]
     runner = s["runner_up"]
     if runner["why_not"]:
-        lines.append(f"{runner['title']} came second; {_join(runner['why_not'])}.")
+        lines.append(f"{runner['title']} came second; "
+                     f"{_join(r['reason'] for r in runner['why_not'])}.")
     else:
         lines.append(f"{runner['title']} came second on a lower score.")
     lines.append("At these stakes the message needs: " + _join(s["requirements"]) + ".")

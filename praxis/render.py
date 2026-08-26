@@ -14,6 +14,7 @@ compute.
 """
 
 from html import escape
+from . import strategy
 from .design import design as _design  # noqa: F401  (documents the input shape)
 
 CSS = """
@@ -138,10 +139,17 @@ def _strategy(result: dict) -> str:
     s = result.get("strategy")
     if not s:
         return ""
-    because = "".join(f"<li>{escape(b)}</li>" for b in s["because"]) or "<li>nothing in the contract selects it yet</li>"
+    # A list item has room for the gloss; it goes in muted so the machine
+    # pair stays the thing being read and the gloss stays the aside.
+    because = "".join(
+        f"<li>{escape(b['reason'])}"
+        + (f' <span class="muted">({escape(b["gloss"])})</span>' if b.get("gloss") else "")
+        + "</li>"
+        for b in s["because"]
+    ) or "<li>nothing in the contract selects it yet</li>"
     seq = "".join(f"<li>{escape(step)}</li>" for step in s["sequence"])
     runner = s["runner_up"]
-    why_not = "; ".join(runner["why_not"]) or "it simply scored lower"
+    why_not = "; ".join(strategy.inline(w) for w in runner["why_not"]) or "it simply scored lower"
     reqs = "".join(f"<li>{escape(r)}</li>" for r in s["requirements"])
     return _section("Recommended strategy", f"""<div class="panel">
 <div class="top"><h3>{escape(s['title'])}</h3> {_chip(s['confidence'] + ' confidence')}</div>
