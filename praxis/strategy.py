@@ -209,10 +209,10 @@ def recommend(contract: Contract) -> dict:
         "summary": best.structure.summary,
         "sequence": list(best.structure.sequence),
         "score": best.score,
-        "because": [_phrase(n, v, w) for n, v, w in best.contributions[:3]],
+        "because": [_reason(n, v, w) for n, v, w in best.contributions[:3]],
         "runner_up": {"structure": runner.structure.id, "title": runner.structure.title,
                       "score": runner.score,
-                      "why_not": [_phrase(n, v, w) for n, v, w in runner.contributions
+                      "why_not": [_reason(n, v, w) for n, v, w in runner.contributions
                                   if w < 0][:2]},
         "confidence": _confidence(best, runner, contract),
         "requirements": requirements(stakes),
@@ -221,21 +221,39 @@ def recommend(contract: Contract) -> dict:
     }
 
 
-def _phrase(name: str, value: str, weight: int) -> str:
-    """One weight row, in English, glossed with the field's own question.
+def _reason(name: str, value: str, weight: int) -> dict:
+    """One weight row, as the pair that decided it and a gloss of the field.
 
-    The machine pair is kept verbatim: it is a receipt, and a reader who
-    wants to check the claim needs the field name the contract actually
-    uses. The gloss is joined from `contract.Field.question` rather than
-    written here, so there is no second place where the meaning of a field
-    lives and nothing to keep in sync when one changes.
+    Two fields rather than one string, because the three renderers put these
+    in different containers. `render.py` and `perkins` emit a list, where a
+    gloss earns its space; `brief.why` builds a sentence, where three glosses
+    turn seventy-seven characters into two hundred and fifty-eight. Handing
+    over both parts lets each decide, instead of one format losing to the
+    other.
 
-    A field with no question renders as it always did.
+    `reason` keeps the machine pair verbatim: it is a receipt, and a reader
+    checking the claim needs the name the contract actually uses. `gloss` is
+    joined from `contract.Field.question`, never written here, so a field's
+    meaning lives in exactly one place. A field with no question glosses to
+    the empty string.
     """
     verb = "favours" if weight > 0 else "counts against"
     field = BY_NAME.get(name)
-    gloss = field.question.rstrip("?").strip().lower() if field and field.question else ""
-    return f"{name} = {value} {verb} it" + (f" ({gloss})" if gloss else "")
+    question = field.question if field and field.question else ""
+    return {
+        "reason": f"{name} = {value} {verb} it",
+        "gloss": question.rstrip("?").strip().lower(),
+    }
+
+
+def inline(reason: dict) -> str:
+    """A reason and its gloss on one line, for a renderer that wants both.
+
+    Shared so the two list-rendering surfaces cannot drift into two
+    slightly different parenthetical styles.
+    """
+    gloss = reason.get("gloss")
+    return reason["reason"] + (f" ({gloss})" if gloss else "")
 
 
 def _confidence(best: Scored, runner: Scored, contract: Contract) -> str:

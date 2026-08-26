@@ -20,7 +20,7 @@ from .evaluate import evaluate
 from .metrics import metrics
 from .transform import transform as build_edits
 
-SCHEMA_VERSION = "design/0.2"
+SCHEMA_VERSION = "design/0.3"  # strategy.because/why_not carry {reason, gloss}
 
 #: The three modes the layer offers. `auto` picks between compose and
 #: evaluate by whether a draft exists; transform has to be asked for,
