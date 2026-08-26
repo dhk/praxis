@@ -213,7 +213,8 @@ def recommend(contract: Contract) -> dict:
         "runner_up": {"structure": runner.structure.id, "title": runner.structure.title,
                       "score": runner.score,
                       "why_not": [_reason(n, v, w) for n, v, w in runner.contributions
-                                  if w < 0][:2]},
+                                  if w < 0][:2],
+                      "instead_of": divergences(best, runner)},
         "confidence": _confidence(best, runner, contract),
         "requirements": requirements(stakes),
         "evidence_standard": _evidence_standard(stakes),
@@ -237,13 +238,112 @@ def _reason(name: str, value: str, weight: int) -> dict:
     meaning lives in exactly one place. A field with no question glosses to
     the empty string.
     """
-    verb = "favours" if weight > 0 else "counts against"
+    return {
+        "reason": f"{_pair(name, value)} {_verb(weight)} it",
+        "gloss": _gloss(name),
+    }
+
+
+def _pair(name: str, value: str) -> str:
+    """The machine pair, verbatim. A receipt a reader can check against
+    `contract.py` needs the name the contract actually uses."""
+    return f"{name} = {value}"
+
+
+def _gloss(name: str) -> str:
+    """A field's meaning, joined from its own question so it lives in one
+    place. A field the contract does not know glosses to the empty string
+    rather than raising."""
     field = BY_NAME.get(name)
     question = field.question if field and field.question else ""
-    return {
-        "reason": f"{name} = {value} {verb} it",
-        "gloss": question.rstrip("?").strip().lower(),
-    }
+    return question.rstrip("?").strip().lower()
+
+
+def _verb(weight: int | None) -> str:
+    """How one weight row landed for one structure. `None` is the row the
+    structure has no opinion about at all, which is a third outcome and not
+    a zero — a structure that never mentions a fact is different from one
+    that mentions it and shrugs."""
+    if weight is None:
+        return "does not count for"
+    return "favours" if weight > 0 else "counts against"
+
+
+def divergences(best: Scored, runner: Scored, limit: int = 3) -> list[dict]:
+    """Every weight row the two structures treat differently, widest first.
+
+    `why_not` answers "what pushed the runner-up down" and is empty for 90%
+    of contracts — 91% of the *contested* ones, which is exactly where a
+    writer asks. The cause is structural rather than a gap in the table: a
+    structure that matches an `avoids` row loses points, so it rarely
+    survives to be runner-up at all. The question has no answer because the
+    losers who would have answered it are not in the comparison.
+
+    The difference between the two sets always has one. A row belongs here
+    whenever the two structures score it differently, which covers three
+    shapes that all separate a winner from a runner-up:
+
+        opposite signs   time_available = low favours bluf, counts against cme
+        one side only    urgency = today favours bluf, does not count for cme
+        same sign        intent = escalate favours sbar more than bluf
+
+    Dropping the third would repeat the failure this exists to fix: for 38
+    of 900 contracts it is the *only* thing separating them. So the test is
+    weight inequality, not sign, and the result is empty if and only if the
+    two structures scored identically on identical rows — a genuine tie,
+    broken by declaration order. `test_a_tie_is_the_only_empty_divergence`
+    holds that line.
+
+    Ordered by how much each row moved the gap, so a capped list shows the
+    rows that decided it rather than the first three found.
+    """
+    b = {(n, v): w for n, v, w in best.contributions}
+    r = {(n, v): w for n, v, w in runner.contributions}
+    keys = list(b) + [k for k in r if k not in b]
+    rows = [(k, b.get(k), r.get(k)) for k in keys if b.get(k) != r.get(k)]
+    rows.sort(key=lambda row: -abs((row[1] or 0) - (row[2] or 0)))
+    return [{"reason": _pair(name, value), "gloss": _gloss(name),
+             "winner": bw, "runner_up": rw}
+            for (name, value), bw, rw in rows[:limit]]
+
+
+#: How one divergence reads as a clause about the runner-up. The key is
+#: (winner's weight, runner-up's weight) reduced to signs, where `None` is
+#: the structure that never mentions the fact. Data rather than a branch
+#: ladder, so a new shape is a row and not an edit to the renderer.
+_CLAUSES: dict[tuple[str, str], str] = {
+    ("+", "0"): "does not count {pair}",
+    ("-", "0"): "does not count {pair}",
+    ("0", "+"): "counts {pair} on its own",
+    ("0", "-"): "counts {pair} against, on its own",
+    ("+", "-"): "counts {pair} against",
+    ("-", "+"): "counts {pair} in favour",
+    ("+", "+"): "weighs {pair} {margin}",
+    ("-", "-"): "weighs {pair} {margin}",
+}
+
+
+def _sign(weight: int | None) -> str:
+    return "0" if weight is None else "+" if weight > 0 else "-"
+
+
+def divergence(row: dict) -> str:
+    """One divergence as a clause about the runner-up, naming neither side.
+
+    Both surfaces that print this have already named the two structures in
+    the sentence before. Putting the names back into every row spelled
+    "situation-background-assessment-recommendation" three times inside one
+    clause — the same failure #46 fixed for glosses, in the same surface.
+    So the frame names each side once and the row stays a predicate whose
+    subject is the runner-up.
+    """
+    w, r = row["winner"], row["runner_up"]
+    margin = ""
+    if w is not None and r is not None:
+        margin = "more" if abs(r) > abs(w) else "less"
+    return _CLAUSES[(_sign(w), _sign(r))].format(reason=row["reason"],
+                                                 pair=row["reason"],
+                                                 margin=margin)
 
 
 def inline(reason: dict) -> str:

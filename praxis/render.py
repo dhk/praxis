@@ -149,7 +149,12 @@ def _strategy(result: dict) -> str:
     ) or "<li>nothing in the contract selects it yet</li>"
     seq = "".join(f"<li>{escape(step)}</li>" for step in s["sequence"])
     runner = s["runner_up"]
-    why_not = "; ".join(strategy.inline(w) for w in runner["why_not"]) or "it simply scored lower"
+    why_not = ("; ".join(strategy.inline(w) for w in runner["why_not"])
+               or ("against this it "
+                   + "; ".join(strategy.divergence(d)
+                               for d in runner["instead_of"])
+                   if runner["instead_of"] else "")
+               or "it scored identically; the tie broke on declaration order")
     reqs = "".join(f"<li>{escape(r)}</li>" for r in s["requirements"])
     return _section("Recommended strategy", f"""<div class="panel">
 <div class="top"><h3>{escape(s['title'])}</h3> {_chip(s['confidence'] + ' confidence')}</div>

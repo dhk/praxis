@@ -25,6 +25,7 @@ change this" is a statement praxis can actually make. Most tools cannot
 tell you when you are finished.
 """
 
+from . import strategy
 from .contract import BY_NAME, SELECTORS
 
 DEPTHS = ("answer", "why", "findings", "contract", "edits")
@@ -139,8 +140,17 @@ def why(result: dict) -> str:
     if runner["why_not"]:
         lines.append(f"{runner['title']} came second; "
                      f"{_join(r['reason'] for r in runner['why_not'])}.")
+    elif runner["instead_of"]:
+        # The branch that used to say "on a lower score", which is true of
+        # every runner-up and so tells the writer nothing. It fires for 90%
+        # of contracts, so it is the sentence most people actually read.
+        lines.append(f"{runner['title']} came second; against "
+                     f"{s['title'].lower()} it "
+                     + _join(strategy.divergence(d)
+                             for d in runner["instead_of"]) + ".")
     else:
-        lines.append(f"{runner['title']} came second on a lower score.")
+        lines.append(f"{runner['title']} scored identically; "
+                     "nothing in the contract separates them yet.")
     lines.append("At these stakes the message needs: " + _join(s["requirements"]) + ".")
     lines.append(f"Evidence standard: {s['evidence_standard']}.")
     if result["shading"]["offer"]:
