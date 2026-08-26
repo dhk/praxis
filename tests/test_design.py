@@ -951,3 +951,150 @@ def test_the_sentence_renderer_stays_a_sentence():
         assert r["reason"] in first
         assert f"({r['gloss']})" not in first, "a gloss leaked into the sentence"
 
+
+
+def _every_contract():
+    """Every combination of the four fields that actually select a structure.
+
+    Nine hundred contracts is small enough to walk in a test and large enough
+    that a claim about "most recommendations" is measured rather than assumed.
+    """
+    import itertools
+    from praxis.contract import BY_NAME
+    fields = ("intent", "stakes", "time_available", "authority")
+    for combo in itertools.product(*[BY_NAME[f].domain for f in fields]):
+        yield dict(zip(fields, combo))
+
+
+def test_an_empty_divergence_always_means_a_tie():
+    """`instead_of` never goes quiet while something separated the two.
+
+    This is the property that makes it worth adding, and it runs one way
+    only. A set difference is empty exactly when the matched rows and their
+    weights are equal, and equal rows force equal scores — so an empty
+    `instead_of` means one specific, reportable thing. The converse is false
+    and deliberately not asserted: two structures can reach the same score off
+    completely different rows, and there the difference is populated and worth
+    reading. `why_not`, by contrast, is empty whenever nothing pushed the
+    runner-up down, which says nothing about what separated them.
+    """
+    from praxis import strategy
+    ties = 0
+    for stated in _every_contract():
+        ranked = strategy.rank(build(stated))
+        rec = strategy.recommend(build(stated))
+        tied = ranked[0].score == ranked[1].score
+        if not rec["runner_up"]["instead_of"]:
+            assert tied, (f"{stated}: instead_of empty but scores "
+                          f"{ranked[0].score} vs {ranked[1].score}")
+            ties += 1
+    # A tie that scores differently is impossible, so an all-empty result
+    # would satisfy the loop above vacuously. It does not happen.
+    assert 0 < ties < 100
+
+
+def test_instead_of_answers_where_why_not_is_silent():
+    """The measurement this exists for, held as a floor.
+
+    `why_not` reports the runner-up's negative rows, and a structure that
+    matches an `avoids` row loses points — so it rarely survives to be runner
+    up at all. The question is empty for most contracts and emptiest among the
+    contested ones, which is exactly where a writer asks it. If a table change
+    ever inverts that, this fails and the fallback wording needs revisiting.
+    """
+    from praxis import strategy
+    total = silent = contested = contested_silent = answered = 0
+    for stated in _every_contract():
+        rec = strategy.recommend(build(stated))
+        runner = rec["runner_up"]
+        total += 1
+        if not runner["why_not"]:
+            silent += 1
+            if runner["instead_of"]:
+                answered += 1
+        if rec["confidence"] == "contested":
+            contested += 1
+            if not runner["why_not"]:
+                contested_silent += 1
+
+    assert silent / total > 0.5, "why_not is no longer the common case"
+    assert contested_silent / contested > silent / total, \
+        "why_not should be emptiest exactly where confidence is lowest"
+    # Nearly every silent contract now has an answer; the rest are true ties.
+    assert answered / silent > 0.9
+
+
+def test_a_divergence_reason_stays_the_machine_pair():
+    """A receipt a reader checks against `contract.py`, not prose.
+
+    `because` and `why_not` end in " it" because their subject is one
+    structure. A divergence is about two, so the pair stands alone and the
+    clause supplies the verb.
+    """
+    from praxis import strategy
+    from praxis.contract import BY_NAME
+    rec = strategy.recommend(build({"intent": "escalate", "stakes": "crisis",
+                                    "time_available": "low",
+                                    "authority": "decides"}))
+    rows = rec["runner_up"]["instead_of"]
+    assert rows
+    for row in rows:
+        assert set(row) == {"reason", "gloss", "winner", "runner_up"}
+        name, _, value = row["reason"].partition(" = ")
+        assert name in BY_NAME and value in BY_NAME[name].domain
+        assert not row["reason"].endswith(" it")
+        assert row["gloss"] == BY_NAME[name].question.rstrip("?").strip().lower()
+        # One side may be absent, but not both — that would not be a difference.
+        assert row["winner"] != row["runner_up"]
+
+
+def test_every_divergence_shape_renders_a_clause():
+    """No contract reaches a shape the clause table has no row for.
+
+    The table is keyed on the pair of signs, and a missing key raises rather
+    than rendering something half-formed. Walking every contract proves the
+    eight rows cover the space, and that no clause ships an unfilled slot.
+    """
+    from praxis import strategy
+    seen = set()
+    for stated in _every_contract():
+        rec = strategy.recommend(build(stated))
+        for row in rec["runner_up"]["instead_of"]:
+            text = strategy.divergence(row)
+            assert row["reason"] in text
+            assert "{" not in text and "  " not in text
+            assert not text.endswith(" ")
+            seen.add((strategy._sign(row["winner"]),
+                      strategy._sign(row["runner_up"])))
+    # Every shape the table claims to handle is one a real contract produces.
+    assert seen == set(strategy._CLAUSES)
+
+
+def test_the_runner_up_sentence_names_each_structure_once():
+    """The clause carries no names, so the frame can name them once.
+
+    Putting both titles into every row spelled a four-word structure name
+    three times inside one sentence — the failure the gloss split fixed, in
+    the same surface, one release earlier.
+    """
+    from praxis import brief
+    result = design("", build({"intent": "escalate", "stakes": "crisis",
+                               "time_available": "low", "authority": "decides"}))
+    runner = result["strategy"]["runner_up"]
+    assert not runner["why_not"] and len(runner["instead_of"]) > 1
+    sentence = brief.why(result).splitlines()[1]
+    assert sentence.count(runner["title"]) == 1
+    assert sentence.lower().count(result["strategy"]["title"].lower()) == 1
+    for row in runner["instead_of"]:
+        assert row["reason"] in sentence
+
+
+def test_a_tie_says_so_rather_than_going_quiet():
+    """The one empty case is reported, not rendered as a blank."""
+    from praxis import brief, render
+    result = design("", build({"intent": "inform", "stakes": "low",
+                               "time_available": "high",
+                               "authority": "decides"}))
+    assert not result["strategy"]["runner_up"]["instead_of"]
+    assert "scored identically" in brief.why(result)
+    assert "identically" in render.document(result)
