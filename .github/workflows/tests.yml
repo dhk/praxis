@@ -127,6 +127,22 @@ jobs:
           test -s artifacts/prompt.md
           grep -q "You are not rewriting it" artifacts/prompt.md
           grep -q "^\`praxis .* rules " artifacts/prompt.md
+
+      - name: The MCP server commissions the same prompt, and can withhold the draft
+        env:
+          PRAXIS_HOME: ${{ runner.temp }}/praxis-home
+        run: |
+          python - <<'EOF'
+          from praxis.mcp import server
+          secret = "The acquisition closes on Tuesday."
+          opened = server.design_open(secret, stated={"intent": "inform"})
+          full = server.design_commission(opened["session"])
+          bare = server.design_commission(opened["session"], include_draft=False)
+          assert full["stamp"] in full["prompt"], "no stamp in the commissioned prompt"
+          assert secret in full["prompt"], "draft missing when it was asked for"
+          assert secret not in bare["prompt"], "draft leaked with include_draft=False"
+          print("commissioned", len(full["prompt"]), "chars ·", full["stamp"])
+          EOF
           python -m praxis design --set intent=repair --out artifacts/plan.html
           test -s artifacts/plan.html
 
