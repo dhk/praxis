@@ -222,8 +222,20 @@ def recommend(contract: Contract) -> dict:
 
 
 def _phrase(name: str, value: str, weight: int) -> str:
+    """One weight row, in English, glossed with the field's own question.
+
+    The machine pair is kept verbatim: it is a receipt, and a reader who
+    wants to check the claim needs the field name the contract actually
+    uses. The gloss is joined from `contract.Field.question` rather than
+    written here, so there is no second place where the meaning of a field
+    lives and nothing to keep in sync when one changes.
+
+    A field with no question renders as it always did.
+    """
     verb = "favours" if weight > 0 else "counts against"
-    return f"{name} = {value} {verb} it"
+    field = BY_NAME.get(name)
+    gloss = field.question.rstrip("?").strip().lower() if field and field.question else ""
+    return f"{name} = {value} {verb} it" + (f" ({gloss})" if gloss else "")
 
 
 def _confidence(best: Scored, runner: Scored, contract: Contract) -> str:
