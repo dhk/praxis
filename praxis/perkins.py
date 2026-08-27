@@ -115,6 +115,12 @@ def commission(result: dict, draft: str = "") -> str:
             # the contract. Three of these inside one sentence do not fit.
             L += ["", "That shape follows from the situation, not from taste:", ""]
             L += [f"- {strategy_mod.inline(r)}" for r in because]
+            # The prompt is handed to a stranger's model, so a list that
+            # stopped at its cap must say so here more than anywhere.
+            hidden = strategy_mod.more(because, strategy.get("because_total",
+                                                             len(because)))
+            if hidden:
+                L.append(f"- ...and {hidden} the engine did not show")
         confidence = strategy.get("confidence")
         runner = strategy.get("runner_up") or {}
         if confidence in ("low", "moderate") and runner.get("title"):

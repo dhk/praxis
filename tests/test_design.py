@@ -1098,3 +1098,82 @@ def test_a_tie_says_so_rather_than_going_quiet():
     assert not result["strategy"]["runner_up"]["instead_of"]
     assert "scored identically" in brief.why(result)
     assert "identically" in render.document(result)
+
+
+def test_a_capped_list_carries_its_true_length():
+    """Every reason list reports how many there really were (#48).
+
+    `questions_outstanding` already keeps this rule on the other half of the
+    result: the display list is capped, the count is not, so a writer never
+    reads a cut list as a complete one. These three had the opposite
+    treatment in the same object.
+
+    The totals are checked against the uncapped computation rather than a
+    constant, so raising a cap cannot make a total wrong.
+    """
+    from praxis import strategy
+    seen_truncation = set()
+    for stated in _every_contract():
+        contract = build(stated)
+        ranked = strategy.rank(contract)
+        best, runner = ranked[0], ranked[1]
+        rec = strategy.recommend(contract)
+        ru = rec["runner_up"]
+
+        expected = {
+            "because": len(best.contributions),
+            "why_not": len([c for c in runner.contributions if c[2] < 0]),
+            "instead_of": len(strategy.divergences(best, runner, limit=None)),
+        }
+        assert rec["because_total"] == expected["because"]
+        assert ru["why_not_total"] == expected["why_not"]
+        assert ru["instead_of_total"] == expected["instead_of"]
+
+        # A total is never less than what is shown, in either direction.
+        for shown, total in ((rec["because"], rec["because_total"]),
+                             (ru["why_not"], ru["why_not_total"]),
+                             (ru["instead_of"], ru["instead_of_total"])):
+            assert len(shown) <= total
+        for name, n in expected.items():
+            if n > len(rec["because"] if name == "because" else ru[name]):
+                seen_truncation.add(name)
+
+    # The test would pass vacuously if nothing ever truncated. Two of the
+    # three do, which is the whole reason the field exists.
+    assert {"because", "instead_of"} <= seen_truncation
+
+
+def test_a_cut_list_says_so_in_the_sentence():
+    """The count has to reach the reader, not just the JSON.
+
+    A total nobody renders fixes the artifact and not the person, and the
+    surface where a list stops is exactly where it reads as complete.
+    """
+    from praxis import brief, render, strategy
+    result = design("", build({"intent": "inform", "stakes": "moderate",
+                               "time_available": "low",
+                               "authority": "decides"}))
+    runner = result["strategy"]["runner_up"]
+    assert runner["instead_of_total"] > len(runner["instead_of"])
+
+    sentence = brief.why(result).splitlines()[1]
+    assert "one more" in sentence
+    page = render.document(result)
+    assert "one more" in page
+
+    # And when nothing is hidden, no surface invents a tail.
+    whole = design("", build({"intent": "teach", "stakes": "low",
+                              "time_available": "low",
+                              "authority": "decides"}))
+    w = whole["strategy"]
+    assert w["because_total"] == len(w["because"])
+    assert "more" not in brief.why(whole).splitlines()[0]
+
+
+def test_the_more_phrase_counts_what_is_hidden():
+    """`more()` is shared so no surface invents its own admission."""
+    from praxis.strategy import more
+    assert more([1, 2, 3], 3) == ""
+    assert more([1, 2, 3], 2) == ""      # never negative
+    assert more([1, 2, 3], 4) == "one more"
+    assert more([1, 2, 3], 6) == "3 more"

@@ -253,6 +253,16 @@ function evaluatedView() {
   </div>`;
 }
 
+// The row counts reasons, and `because` is capped — so it must count the
+// total, not the rows on screen. Reporting the cap as the count is the
+// failure #48 names, and a summary row is where it would be least visible.
+function reasonCount(r) {
+  const shown = (r.strategy && r.strategy.because) ? r.strategy.because.length : 0;
+  const total = (r.strategy && r.strategy.because_total != null)
+    ? r.strategy.because_total : shown;
+  return total > shown ? `${shown} of ${total} reasons` : `${total} reasons`;
+}
+
 function depthMap(r) {
   const counts = verdictCounts();
   const total = dimensions().length;
@@ -269,7 +279,7 @@ function depthMap(r) {
 
   return `
   <div class="depths">
-    ${row('01', 'Why this shape', `${(r.strategy && r.strategy.because ? r.strategy.because.length : 0)} reasons`, 'toggle-why')}
+    ${row('01', 'Why this shape', reasonCount(r), 'toggle-why')}
     ${row('02', 'What is missing', `${total} dimensions · ${counts.unknown} unknown`, 'toggle-score')}
     ${row('03', 'What praxis thinks you meant', `${fields} fields · ${statedCount()} stated`, 'toggle-contract')}
     ${gated
