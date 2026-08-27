@@ -1,0 +1,25 @@
+/* DM Mono, vendored.
+ *
+ * Both pages promise the draft never leaves the browser and that they work
+ * offline. A CDN <link> does not send the draft anywhere, but it does tell
+ * Google the visitor's IP and that they opened the page, and it breaks
+ * offline entirely — so the font travels with the page. See web/fonts/README.md.
+ *
+ * Latin subset only: the chrome is English and the unicode-range split
+ * Google serves would double the requests for glyphs nothing here uses.
+ * Every rule falls back through --font-mono, so a missing file costs the
+ * typeface and nothing else. */
+@font-face {
+  font-family: 'DM Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./fonts/dm-mono-400-latin.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'DM Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('./fonts/dm-mono-500-latin.woff2') format('woff2');
+}

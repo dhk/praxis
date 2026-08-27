@@ -189,6 +189,13 @@ jobs:
           key: pyodide-${{ hashFiles('scripts/build_site.sh') }}
       - name: Build
         run: bash scripts/build_site.sh
+      - name: No page reaches the network, source or built
+        # The guarantee is on the pages themselves, so it is checked on the
+        # source tree and again on what the build actually ships.
+        run: |
+          bash scripts/check_no_network.sh web
+          bash scripts/check_no_network.sh dist
+
       - name: The bundle carries the engine and not the transport
         run: |
           test -s dist/py/praxis/pipeline.py
