@@ -147,14 +147,27 @@ def _strategy(result: dict) -> str:
         + "</li>"
         for b in s["because"]
     ) or "<li>nothing in the contract selects it yet</li>"
+    # A cut list gets its own row rather than a footnote: the reader is
+    # counting items, so the admission belongs where the items are.
+    hidden = strategy.more(s["because"], s.get("because_total", len(s["because"])))
+    if hidden:
+        because += f'<li class="muted">and {escape(hidden)}</li>'
     seq = "".join(f"<li>{escape(step)}</li>" for step in s["sequence"])
     runner = s["runner_up"]
-    why_not = ("; ".join(strategy.inline(w) for w in runner["why_not"])
-               or ("against this it "
-                   + "; ".join(strategy.divergence(d)
-                               for d in runner["instead_of"])
-                   if runner["instead_of"] else "")
-               or "it scored identically; the tie broke on declaration order")
+    if runner["why_not"]:
+        why_not = "; ".join(strategy.inline(w) for w in runner["why_not"])
+        cut = strategy.more(runner["why_not"],
+                            runner.get("why_not_total", len(runner["why_not"])))
+    elif runner["instead_of"]:
+        why_not = "against this it " + "; ".join(
+            strategy.divergence(d) for d in runner["instead_of"])
+        cut = strategy.more(runner["instead_of"],
+                            runner.get("instead_of_total", len(runner["instead_of"])))
+    else:
+        why_not = "it scored identically; the tie broke on declaration order"
+        cut = ""
+    if cut:
+        why_not += f", and {cut}"
     reqs = "".join(f"<li>{escape(r)}</li>" for r in s["requirements"])
     return _section("Recommended strategy", f"""<div class="panel">
 <div class="top"><h3>{escape(s['title'])}</h3> {_chip(s['confidence'] + ' confidence')}</div>

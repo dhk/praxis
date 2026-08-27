@@ -198,23 +198,43 @@ def rank(contract: Contract) -> list[Scored]:
     return scored
 
 
+#: How many rows of each reason list a surface shows. Every one of these is
+#: paired with a `_total` in the result: a list cut short must never read as
+#: a complete one, which is the rule `questions_outstanding` already keeps on
+#: the other half of the result (#48).
+BECAUSE_SHOWN = 3
+WHY_NOT_SHOWN = 2
+INSTEAD_OF_SHOWN = 3
+
+
 def recommend(contract: Contract) -> dict:
-    """The recommended structure, why it won, and what it obliges."""
+    """The recommended structure, why it won, and what it obliges.
+
+    Each reason list is capped for reading and carries its true length
+    beside it. `because` is 3 of `because_total`, `why_not` 2 of
+    `why_not_total`, `instead_of` 3 of `instead_of_total`. A renderer that
+    shows fewer than the total owes the reader that fact — see `more()`.
+    """
     ranked = rank(contract)
     best, runner = ranked[0], ranked[1]
     stakes = contract.get("stakes")
+    because = [_reason(n, v, w) for n, v, w in best.contributions]
+    why_not = [_reason(n, v, w) for n, v, w in runner.contributions if w < 0]
+    instead_of = divergences(best, runner, limit=None)
     return {
         "structure": best.structure.id,
         "title": best.structure.title,
         "summary": best.structure.summary,
         "sequence": list(best.structure.sequence),
         "score": best.score,
-        "because": [_reason(n, v, w) for n, v, w in best.contributions[:3]],
+        "because": because[:BECAUSE_SHOWN],
+        "because_total": len(because),
         "runner_up": {"structure": runner.structure.id, "title": runner.structure.title,
                       "score": runner.score,
-                      "why_not": [_reason(n, v, w) for n, v, w in runner.contributions
-                                  if w < 0][:2],
-                      "instead_of": divergences(best, runner)},
+                      "why_not": why_not[:WHY_NOT_SHOWN],
+                      "why_not_total": len(why_not),
+                      "instead_of": instead_of[:INSTEAD_OF_SHOWN],
+                      "instead_of_total": len(instead_of)},
         "confidence": _confidence(best, runner, contract),
         "requirements": requirements(stakes),
         "evidence_standard": _evidence_standard(stakes),
@@ -269,7 +289,7 @@ def _verb(weight: int | None) -> str:
     return "favours" if weight > 0 else "counts against"
 
 
-def divergences(best: Scored, runner: Scored, limit: int = 3) -> list[dict]:
+def divergences(best: Scored, runner: Scored, limit: int | None = None) -> list[dict]:
     """Every weight row the two structures treat differently, widest first.
 
     `why_not` answers "what pushed the runner-up down" and is empty for 90%
@@ -302,9 +322,11 @@ def divergences(best: Scored, runner: Scored, limit: int = 3) -> list[dict]:
     keys = list(b) + [k for k in r if k not in b]
     rows = [(k, b.get(k), r.get(k)) for k in keys if b.get(k) != r.get(k)]
     rows.sort(key=lambda row: -abs((row[1] or 0) - (row[2] or 0)))
+    if limit is not None:
+        rows = rows[:limit]
     return [{"reason": _pair(name, value), "gloss": _gloss(name),
              "winner": bw, "runner_up": rw}
-            for (name, value), bw, rw in rows[:limit]]
+            for (name, value), bw, rw in rows]
 
 
 #: How one divergence reads as a clause about the runner-up. The key is
@@ -354,6 +376,18 @@ def inline(reason: dict) -> str:
     """
     gloss = reason.get("gloss")
     return reason["reason"] + (f" ({gloss})" if gloss else "")
+
+
+def more(shown: list, total: int) -> str:
+    """What a capped list is not saying, as a phrase, or "" when it says it all.
+
+    Shared so no surface invents its own way of admitting a cut, and so a
+    surface that forgets to call it is the visible bug rather than the
+    silent one. The number is the count hidden, not the total, because the
+    reader can already see how many are in front of them.
+    """
+    hidden = total - len(shown)
+    return "" if hidden < 1 else f"{hidden} more" if hidden > 1 else "one more"
 
 
 def _confidence(best: Scored, runner: Scored, contract: Contract) -> str:

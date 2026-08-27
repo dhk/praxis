@@ -135,11 +135,15 @@ def why(result: dict) -> str:
     # The sentence takes `reason` alone: three glosses inside one clause is
     # the format that made this unreadable. The glosses are in the list
     # renderers, where they have room.
-    lines = [f"{s['title']} was chosen because {_join(r['reason'] for r in s['because'])}."]
+    lines = [f"{s['title']} was chosen because "
+             f"{_join(r['reason'] for r in s['because'])}"
+             + _and_more(s["because"], s.get("because_total")) + "."]
     runner = s["runner_up"]
     if runner["why_not"]:
         lines.append(f"{runner['title']} came second; "
-                     f"{_join(r['reason'] for r in runner['why_not'])}.")
+                     f"{_join(r['reason'] for r in runner['why_not'])}"
+                     + _and_more(runner["why_not"],
+                                 runner.get("why_not_total")) + ".")
     elif runner["instead_of"]:
         # The branch that used to say "on a lower score", which is true of
         # every runner-up and so tells the writer nothing. It fires for 90%
@@ -147,7 +151,9 @@ def why(result: dict) -> str:
         lines.append(f"{runner['title']} came second; against "
                      f"{s['title'].lower()} it "
                      + _join(strategy.divergence(d)
-                             for d in runner["instead_of"]) + ".")
+                             for d in runner["instead_of"])
+                     + _and_more(runner["instead_of"],
+                                 runner.get("instead_of_total")) + ".")
     else:
         lines.append(f"{runner['title']} scored identically; "
                      "nothing in the contract separates them yet.")
@@ -245,6 +251,20 @@ def _common_prefix(items: list[str]) -> str:
     prefix = first[:i]
     cut = prefix.rfind(",")
     return prefix[: cut + 1] if cut > 0 else ""
+
+
+def _and_more(shown: list, total: int | None) -> str:
+    """The tail a sentence needs when its list was cut short.
+
+    A reason list that stops at its cap reads as the whole story, which is
+    the failure #48 names. `total` is optional so a caller holding an older
+    result degrades to silence rather than raising — but every result this
+    package builds carries it.
+    """
+    if total is None:
+        return ""
+    tail = strategy.more(shown, total)
+    return f", and {tail}" if tail else ""
 
 
 def _join(items: list[str]) -> str:
