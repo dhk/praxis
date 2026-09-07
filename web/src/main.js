@@ -15,7 +15,7 @@ const state = {
   selectedObs: null,
   transformTab: 'diff',
   reportTab: null,
-  compareView: 'raw', // 'raw' | 'rendered'
+  compareView: 'raw', // 'raw' | 'rendered' | 'changes'
   running: false,
   error: null,
   packId: DEFAULT_PACK,
@@ -510,7 +510,11 @@ function splitReportSections(reportMd) {
   return sections.map((s) => ({ title: s.title, body: s.lines.join('\n').trim() }));
 }
 
+/* Two panes scrolling together. The Changes view has one pane, not two, so
+   both lookups come back null there — guard rather than let the caller know
+   which view is showing, since the panes are this function's business. */
 function syncScroll(a, b) {
+  if (!a || !b) return;
   let lock = false;
   const follow = (from, to) => () => {
     if (lock) return;
@@ -532,17 +536,34 @@ function syncScroll(a, b) {
 // docs/design/praxis-viewer-workflow-fixes).
 const REPORT_TAB_ORDER = ['Final Document', 'Compare', 'Validation', 'Transformation Diff Log', 'Metrics'];
 
+/* Two panes side by side leave the reader to diff by eye, which is the work
+   the panel exists to do for them. The third view marks the difference
+   instead — and reuses renderDiff(), the same map the Transform pass shows,
+   so the two surfaces cannot drift into two accounts of one change.
+
+   The map itself is the engine's: worker.js computes it in Python with
+   difflib and ships it as ui.diff. Nothing is diffed here. */
 function renderCompareTabBody(t) {
-  const rendered = state.compareView === 'rendered';
+  const view = state.compareView;
+  const tab = (id, label) => `<button class="tab" role="tab" data-compare-view="${id}" aria-selected="${view === id}">${label}</button>`;
+  const tabs = `<div class="tabs" role="tablist">${tab('raw', 'Raw')}${tab('rendered', 'Rendered')}${tab('changes', 'Changes')}</div>`;
+
+  if (view === 'changes') {
+    const { before, after } = t.metrics;
+    return `${tabs}
+    <div class="compare-changes">
+      <div class="label">Original → Final · ${before.words} → ${after.words} words${changeSummary()}</div>
+      <div class="source-view compare-pane diff-view" id="cmp-changes">${renderDiff()}</div>
+      ${diffLegend()}
+    </div>`;
+  }
+
+  const rendered = view === 'rendered';
   const pane = (text) => (rendered
     ? `<div class="report-body">${renderMarkdown(text)}</div>`
     : escapeHtml(text));
   const paneClass = rendered ? 'rendered-view compare-pane' : 'source-view compare-pane';
-  return `
-    <div class="tabs" role="tablist">
-      <button class="tab" role="tab" data-compare-view="raw" aria-selected="${!rendered}">Raw</button>
-      <button class="tab" role="tab" data-compare-view="rendered" aria-selected="${rendered}">Rendered</button>
-    </div>
+  return `${tabs}
     <div class="compare-grid">
       <div class="compare-col">
         <div class="label">Original · ${t.metrics.before.words} words</div>
@@ -553,6 +574,34 @@ function renderCompareTabBody(t) {
         <div class="${paneClass}" id="cmp-final">${pane(t.final)}</div>
       </div>
     </div>`;
+}
+
+/* How many segments actually changed. A diff view that opens on a document
+   with no edits should say so rather than looking identical to a document
+   nobody has read. */
+function changedSegments() {
+  return (state.trail.ui.diff || []).filter((seg) => seg.op !== 'equal').length;
+}
+
+function changeSummary() {
+  const n = changedSegments();
+  return n ? ` · ${n} change${n === 1 ? '' : 's'}` : ' · nothing changed';
+}
+
+/* The colours are safety tiers, which the marks alone do not give away.
+   `review` is deliberately not in this legend: those transformations are
+   never applied, so they cannot appear in a diff between the source and the
+   final document. Listing a colour that can never render would have been a
+   false statement about the tier that matters most — the legend says where
+   they are instead. */
+function diffLegend() {
+  const reviewed = state.trail.transformations.filter((t) => !t.applied).length;
+  return `<div class="diff-legend">
+    <span class="legend-item"><ins class="safe">safe</ins> applied automatically</span>
+    <span class="legend-item"><ins class="low_risk">low risk</ins> applied, worth a look</span>
+    <span class="legend-item"><ins class="other">unmatched</ins> changed, no single record claims it</span>
+    ${reviewed ? `<span class="legend-item">${reviewed} review-tier change${reviewed === 1 ? '' : 's'} never applied — see the Transform pass</span>` : ''}
+  </div>`;
 }
 
 function renderReport() {
