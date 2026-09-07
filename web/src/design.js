@@ -43,6 +43,7 @@ const state = {
   sel: null,                   // selected change id, shared by both panes
   draftView: 'marked',         // marked | original
   stopped: false,
+  kept: {},                    // edit id -> the writer chose to keep it as written
   busy: false,
   notice: null,                // a rejection to show the writer
   theme: 'light',
@@ -72,7 +73,11 @@ async function evaluate(mode = 'auto') {
   }
   // Transform mode returns the whole evaluation *plus* a `transform`
   // sub-object. Keep both: the depth map still reads the evaluation.
-  if (mode === 'transform') { state.result = result; state.transform = result.transform; }
+  /* An edit's id is its position in the list, so a fresh transform can hand
+     the same id to a different change. Decisions the writer made about the
+     old list do not survive that, and carrying them over would silently mark
+     the wrong edit as kept. */
+  if (mode === 'transform') { state.result = result; state.transform = result.transform; state.kept = {}; }
   else { state.result = result; state.transform = null; }
   render();
   return result;
@@ -94,6 +99,8 @@ function contractGroups() {
       name: field.name,
       question: field.question,
       options: field.options || [],
+      kind: field.kind || 'text',
+      note: field.note || '',
       value: value == null || value === '' ? '—' : String(value),
       // Absent is not inferred: a field praxis has said nothing about shows
       // neither dot filled nor a guess italicised as though it had one.
@@ -362,16 +369,47 @@ function fieldRow(f) {
       <span class="field-dot ${dot}"></span>
     </button>`;
   if (!open) return row;
-  /* A field with no closed domain gets no picker — the eleven free-text
-     fields are named as such rather than given a fake list to choose from. */
-  const editor = f.options.length
-    ? `<div class="picker">
-         ${f.options.map((opt) => `
-           <button class="picker-opt${state.stated[f.name] === opt ? ' on' : ''}" data-act="set-field" data-field="${escapeHtml(f.name)}" data-value="${escapeHtml(opt)}" type="button">${escapeHtml(opt)}</button>`).join('')}
-       </div>`
-    : `<div class="picker-note">${escapeHtml(f.question)} This field is free text —
-       there is no list to choose from, and a free-text editor is not built yet.</div>`;
+  /* A field with a closed domain gets the picker. The eleven without one get
+     a typed editor rather than a fake list: `kind` comes from the engine's
+     own field catalogue, so the split is the contract's and not a guess
+     made here. */
+  const editor = f.options.length ? picker(f) : freeTextEditor(f);
   return row + editor;
+}
+
+function picker(f) {
+  return `<div class="picker">
+    ${f.options.map((opt) => `
+      <button class="picker-opt${state.stated[f.name] === opt ? ' on' : ''}" data-act="set-field" data-field="${escapeHtml(f.name)}" data-value="${escapeHtml(opt)}" type="button">${escapeHtml(opt)}</button>`).join('')}
+  </div>`;
+}
+
+/* One editor, three shapes, chosen by the field's own `kind`.
+   `list` is one entry per line because the only list field is `protected`,
+   whose entries are literal strings that may themselves contain commas —
+   splitting on a comma would quietly break a protected phrase in half.
+   `number` sends a number: the contract's evaluator checks isinstance(int),
+   and a numeric field arriving as "250" is the exact bug `kind` was added
+   for. */
+function freeTextEditor(f) {
+  const current = state.stated[f.name];
+  const value = current == null ? ''
+    : Array.isArray(current) ? current.join('\n') : String(current);
+  const id = `fld-${f.name}`;
+  const control = f.kind === 'list'
+    ? `<textarea class="field-input" id="${id}" rows="3" placeholder="One per line">${escapeHtml(value)}</textarea>`
+    : f.kind === 'number'
+      ? `<input class="field-input" id="${id}" type="number" inputmode="numeric" value="${escapeHtml(value)}">`
+      : `<input class="field-input" id="${id}" type="text" value="${escapeHtml(value)}">`;
+  return `<div class="field-editor">
+    <label class="field-q" for="${id}">${escapeHtml(f.question)}</label>
+    ${f.note ? `<div class="field-note">${escapeHtml(f.note)}</div>` : ''}
+    ${control}
+    <div class="field-actions">
+      <button class="btn btn-primary" data-act="save-field" data-field="${escapeHtml(f.name)}" data-kind="${escapeHtml(f.kind)}" type="button">Save</button>
+      ${current == null ? '' : `<button class="btn btn-ghost" data-act="clear-field" data-field="${escapeHtml(f.name)}" type="button">Clear</button>`}
+    </div>
+  </div>`;
 }
 
 function questionCard(ui, outstanding) {
@@ -541,20 +579,39 @@ function annotation(edit, kind) {
   </div>`;
 }
 
+/* `blocked_by` is a list of spans — {start, end, text} — not strings. Joining
+   the objects rendered "[object Object]" where the writer's own words should
+   be, and it went unseen because the bundled example declares no protection,
+   so this panel never rendered in the shipped page. */
+function blockedText(edit) {
+  return (edit.blocked_by || []).map((span) => (span && span.text) || '').filter(Boolean);
+}
+
+/* Whitespace-insensitive, because `spans.contains_phrase` matches a declared
+   phrase across a line break. Comparing the located span to the declared
+   string exactly would fail to release the very protection that blocked the
+   edit, on any draft that happens to be hard-wrapped. */
+const squash = (text) => String(text).replace(/\s+/g, ' ').trim();
+
 function blockedBlock(edit) {
+  const phrases = blockedText(edit);
+  const kept = state.kept[edit.id];
   return `
-  <div class="blocked-block">
+  <div class="blocked-block${kept ? ' kept' : ''}">
     <div class="blocked-head">
-      <span class="blocked-tag">⊘ Blocked</span>
-      <span class="blocked-sub">Collides with content you protected</span>
+      <span class="blocked-tag">⊘ ${kept ? 'Kept as written' : 'Blocked'}</span>
+      <span class="blocked-sub">${kept ? 'Your protection stands; the change is not made'
+                                       : 'Collides with content you protected'}</span>
     </div>
     <p>${escapeHtml(edit.instruction || edit.summary || '')}
-    You protected <span class="blocked-span">${escapeHtml((edit.blocked_by || []).join(', '))}</span>,
+    You protected <span class="blocked-span">${escapeHtml(phrases.join('” / “'))}</span>,
     and the change cannot be made without touching it. I have not made it and I will not
     choose for you.</p>
     <div class="blocked-actions">
-      <button class="btn btn-ghost" data-act="noop" type="button">Release the protection</button>
-      <button class="btn btn-ghost" data-act="noop" type="button">Keep it as written</button>
+      ${kept
+        ? `<button class="btn btn-ghost" data-act="reopen-blocked" data-id="${edit.id}" type="button">Reconsider</button>`
+        : `<button class="btn btn-ghost" data-act="release-protection" data-id="${edit.id}" type="button">Release the protection</button>
+           <button class="btn btn-ghost" data-act="keep-written" data-id="${edit.id}" type="button">Keep it as written</button>`}
     </div>
   </div>`;
 }
@@ -630,6 +687,68 @@ app.addEventListener('click', async (e) => {
     if (state.stage === 'transformed') await evaluate('transform');
     return;
   }
+  if (act === 'save-field') {
+    const input = document.getElementById(`fld-${el.dataset.field}`);
+    if (!input) return;
+    const raw = input.value;
+    const kind = el.dataset.kind;
+    let value;
+    if (kind === 'list') {
+      value = raw.split('\n').map((line) => line.trim()).filter(Boolean);
+      if (!value.length) value = null;
+    } else if (kind === 'number') {
+      // An empty box clears; anything unparseable is refused rather than
+      // sent as NaN, which the contract would reject less legibly.
+      const n = Number(raw.trim());
+      if (!raw.trim()) value = null;
+      else if (!Number.isFinite(n)) { state.notice = `${el.dataset.field} takes a number.`; render(); return; }
+      else value = n;
+    } else {
+      value = raw.trim() || null;
+    }
+    if (value == null) delete state.stated[el.dataset.field];
+    else state.stated[el.dataset.field] = value;
+    state.editing = null;
+    state.stopped = false;
+    state.notice = null;
+    await evaluate('auto');
+    if (state.stage === 'transformed') await evaluate('transform');
+    return;
+  }
+  if (act === 'clear-field') {
+    delete state.stated[el.dataset.field];
+    state.editing = null;
+    await evaluate('auto');
+    if (state.stage === 'transformed') await evaluate('transform');
+    return;
+  }
+  /* The writer resolves the conflict praxis refuses to resolve. Releasing
+     drops the declared phrases this edit collided with and re-runs, so the
+     engine re-decides rather than this file deciding for it. */
+  if (act === 'release-protection') {
+    const edit = edits()[Number(el.dataset.id)];
+    if (!edit) return;
+    const blocked = new Set(blockedText(edit).map(squash));
+    const declared = state.stated.protected || [];
+    const remaining = declared.filter((phrase) => !blocked.has(squash(phrase)));
+    if (remaining.length === declared.length) {
+      // The protection came from somewhere this page cannot edit — say so
+      // rather than appearing to act and changing nothing.
+      state.notice = 'That protection was not declared here, so it cannot be released from this page.';
+      render();
+      return;
+    }
+    if (remaining.length) state.stated.protected = remaining;
+    else delete state.stated.protected;
+    delete state.kept[edit.id];
+    await evaluate('auto');
+    if (state.stage === 'transformed') await evaluate('transform');
+    return;
+  }
+  /* Keeping is the writer's decision recorded, not the edit dropped: the
+     engine still reports the conflict, and "Reconsider" puts it back. */
+  if (act === 'keep-written') { state.kept[Number(el.dataset.id)] = true; render(); return; }
+  if (act === 'reopen-blocked') { delete state.kept[Number(el.dataset.id)]; render(); return; }
   if (act === 'stop') { state.stopped = true; render(); return; }
   if (act === 'resume') { state.stopped = false; render(); return; }
   if (act === 'transform') {
@@ -657,6 +776,7 @@ resetBtn.addEventListener('click', () => {
   state.stage = 'empty';
   state.draft = '';
   state.stated = {};
+  state.kept = {};
   state.result = null;
   state.transform = null;
   state.open = { why: false, score: false, contract: false };
