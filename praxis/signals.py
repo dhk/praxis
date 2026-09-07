@@ -67,8 +67,14 @@ HEDGE = re.compile(
     r"|I was wondering|I'd like to discuss|wanted to (?:reach out|flag))", FLAGS)
 
 #: Recognition of the reader's effort, workload, or situation.
+#: A bare "Thanks" is a sign-off, which MEANINGS excludes: it acknowledges
+#: nothing in particular. "Thanks for the quick turnaround" acknowledges
+#: something, and the difference between them is whether the thanks names
+#: what it is for. So the thanking forms now require their object; every
+#: other alternative already carried one.
 ACKNOWLEDGEMENT = re.compile(
-    r"\b(?:thank(?:s| you)|appreciate|I (?:know|realise|realize|understand|recognise|recognize)\b"
+    r"\b(?:thank(?:s| you)(?:\s+\w+){0,3}\s+for\b"
+    r"|appreciate|I (?:know|realise|realize|understand|recognise|recognize)\b"
     r"|I'm sorry|I am sorry|apolog\w+|aware that you|given (?:your|how)"
     r"|know (?:this|how much|you)\b)", FLAGS)
 
@@ -83,9 +89,18 @@ EVIDENCE = re.compile(
     r"|we (?:tested|measured|observed)|source:|see\s+\[)", FLAGS)
 
 #: A named party who will carry an action.
+#: `[A-Z][a-z]+ will` is there to catch a named party — "Priya will send
+#: it". It also caught "It will be handled once the review closes", which is
+#: the passive with no actor that MEANINGS excludes *by name*: the claim and
+#: the pattern disagreed, and the claim was right. Pronouns and determiners
+#: starting a sentence look exactly like a name to `[A-Z][a-z]+`, so they are
+#: excluded explicitly. "We will" and "I will" keep their own alternatives —
+#: a writer committing themselves does name someone.
 OWNER = re.compile(
     r"\b(?:I will|I'll|we will|we'll|I am|I'm going to|owner:|assigned to"
-    r"|[A-Z][a-z]+ will\b)|@[A-Za-z][\w.-]*", re.MULTILINE)
+    r"|(?!(?:It|This|That|There|These|Those|Everything|Nothing|Someone|"
+    r"Anyone|Somebody|Anybody|Something)\b)[A-Z][a-z]+ will\b)"
+    r"|@[A-Za-z][\w.-]*", re.MULTILINE)
 
 #: A mechanism that confirms the message was received and acted on.
 #:
