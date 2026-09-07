@@ -331,3 +331,90 @@ def test_the_page_shows_located_changes():
     assert "Located changes" in html
     assert "characters" in html
     assert "protected" in html.lower()
+
+
+# --- where a move is going --------------------------------------------
+
+#: A draft whose point sits at the bottom, with an opening deliberately free
+#: of anything the `ask` or `consequential` detectors fire on. An earlier
+#: version said "cost" in the first paragraph, `consequential` matched it,
+#: and structural_fit passed — so the move branch under test never ran.
+BURIED_POINT = ("Hi Priya,\n\nThe team met on Tuesday and again on Thursday. We walked "
+                "through the notes from March, compared what each group had written "
+                "down, and tidied the wording so both versions read the same "
+                "way.\n\nEveryone agreed the summary now reflects what was "
+                "said.\n\nPlease approve the shortlist by Friday so we can start "
+                "contracting.")
+
+
+#: The mirror fixture: the ask in the first line, which is the gap a
+#: context-first structure reports. Its move has no destination offset —
+#: "below the situation it depends on" is not a number the engine holds.
+ASK_FIRST = ("Please approve the shortlist by Friday so we can start contracting.\n\n"
+             "The team met on Tuesday and again on Thursday. We walked through the "
+             "notes from March, compared what each group had written down, and tidied "
+             "the wording so both versions read the same way.\n\nEveryone agreed the "
+             "summary now reflects what was said.")
+
+
+def _moves(result):
+    return [e for e in result["edits"] if e["kind"] == "move"]
+
+
+def test_a_move_to_the_top_carries_the_offset_it_means():
+    """"To the top of the message, before the background" is `body_start`.
+
+    The engine already computed it — the sibling insert in the same builder
+    is `at=body`. Leaving it out of the edit made a surface parse the
+    sentence or mark an origin with no target.
+    """
+    result = _transform({"intent": "request", "authority": "decides"}, draft=BURIED_POINT)
+    moves = _moves(result)
+    assert moves, "the fixture should put the point below the background"
+    edit = moves[0]
+    assert edit["to"] == spans.body_start(BURIED_POINT)
+    # The destination clears the greeting, and is not where the sentence
+    # already is — a move to its own position is not a move.
+    assert edit["to"] > 0
+    assert edit["to"] != edit["where"]["start"]
+
+
+def test_an_unknown_destination_is_absent_not_zero():
+    """`None` and `0` must not share a representation.
+
+    Offset 0 is the very top of a draft — a real destination. A move whose
+    target has not been derived says nothing rather than pointing at the
+    first character, which is what a falsy default would have done.
+
+    The context-first branch names its destination only in prose — "below
+    the situation it depends on" has no offset in hand — so it is the case
+    that has to stay absent.
+    """
+    result = _transform({"intent": "teach", "prior_knowledge": "none",
+                         "time_available": "high"}, draft=ASK_FIRST)
+    moves = _moves(result)
+    assert moves, "the fixture should lead with the ask, against a context-first shape"
+    for edit in moves:
+        assert edit["to"] is None
+        # Not merely falsy: 0 would pass a truthiness check and mean the top.
+        assert not isinstance(edit["to"], int)
+
+
+def test_only_a_move_carries_a_destination():
+    """An insert or a revise has nowhere to go; `to` stays absent on them."""
+    for values in ({"intent": "request", "authority": "decides"},
+                   {"intent": "teach", "prior_knowledge": "none"}):
+        result = _transform(values, draft=BURIED_POINT)
+        for edit in result["edits"]:
+            if edit["kind"] != "move":
+                assert edit["to"] is None, f"{edit['kind']} carries a destination"
+
+
+def test_a_destination_is_a_real_position_in_the_draft():
+    """A target outside the text would be a location the writer cannot see."""
+    for values in ({"intent": "request", "authority": "decides"},
+                   {"intent": "recommend", "authority": "approves"}):
+        result = _transform(values, draft=BURIED_POINT)
+        for edit in _moves(result):
+            if edit["to"] is not None:
+                assert 0 <= edit["to"] <= len(BURIED_POINT)
