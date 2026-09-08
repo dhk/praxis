@@ -15,8 +15,25 @@
 import { escapeHtml } from './markdown.js';
 import { runDesign, engineFields, engineStatus, onEngineReady, startEngine } from './engine.js';
 
-/* The reference implementation's draft, kept as the example: it carries one
-   of every marker kind and a protected span that blocks an edit. */
+/* The reference implementation's draft, kept as the example.
+
+   The comment here used to claim it carried "one of every marker kind and a
+   protected span that blocks an edit". Neither was true of what the button
+   did: `example` set the draft and nothing else, and with an empty contract
+   the engine finds no gaps to locate, so pressing it and then asking for
+   changes produced an empty transform view. Nobody saw the blocked panel,
+   which is how it shipped rendering "[object Object]" where the writer's own
+   protected words belong.
+
+   EXAMPLE_CONTRACT is the smallest seed that fixes that: `intent` and
+   `stakes` are enough for four edits, and the protected phrase collides with
+   one of them. Four questions stay outstanding, so the example still shows a
+   contract worth answering rather than a finished one.
+
+   Marker kinds: this draft reaches `insert` and `revise`. `move` needs a
+   draft whose point sits below its background, and `cut` a gap this contract
+   does not produce — so the claim is narrowed rather than the draft
+   replaced. */
 const EXAMPLE_DRAFT = `Subject: Approving the Pyodide bundle for the public viewer
 
 We need a decision on whether the public viewer ships the full Pyodide runtime or a trimmed build. The full runtime is 7 MB and downloads once; the trimmed build is 2.4 MB but drops three stdlib modules the engine imports, which would mean maintaining a shim.
@@ -26,6 +43,16 @@ Engineering prefers the full runtime. It costs nothing to maintain and the downl
 I'd like to go with the full runtime unless someone objects by Friday.
 
 Happy to talk it through if that's easier.`;
+
+/* What the example states, so the transform view has something in it. The
+   protected phrase is a real span of the draft above and collides with the
+   evidence_fit revise — the one case where praxis reports a conflict and
+   refuses to resolve it. */
+const EXAMPLE_CONTRACT = {
+  intent: 'request',
+  stakes: 'high',
+  protected: ['It costs nothing to maintain and the download is cached'],
+};
 
 const app = document.getElementById('app');
 const modeLabel = document.getElementById('mode-label');
@@ -661,8 +688,12 @@ app.addEventListener('click', async (e) => {
   const act = el.dataset.act;
 
   if (act === 'evaluate' || act === 'example') {
-    if (act === 'example') state.draft = EXAMPLE_DRAFT;
-    else if (!state.draft.trim()) state.draft = EXAMPLE_DRAFT;
+    if (act === 'example') {
+      state.draft = EXAMPLE_DRAFT;
+      // Seeded, not merged: pressing the example twice should give the same
+      // page, not the example plus whatever the last run left behind.
+      state.stated = { ...EXAMPLE_CONTRACT };
+    } else if (!state.draft.trim()) state.draft = EXAMPLE_DRAFT;
     const result = await evaluate('auto');
     if (result) { state.stage = 'evaluated'; render(); }
     return;
