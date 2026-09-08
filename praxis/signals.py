@@ -67,8 +67,28 @@ HEDGE = re.compile(
     r"|I was wondering|I'd like to discuss|wanted to (?:reach out|flag))", FLAGS)
 
 #: Recognition of the reader's effort, workload, or situation.
+#: A bare "Thanks" is a sign-off, which MEANINGS excludes: it acknowledges
+#: nothing in particular. What separates it from a real acknowledgement is
+#: not whether it names an object — "Thanks, that was a big lift" names none
+#: and acknowledges plenty — but whether the thanks is the last thing the
+#: writer says. So the sign-off *shapes* are excluded rather than an object
+#: required: ending there, sitting above a name, running into a valediction,
+#: or naming the reader and stopping.
+#:
+#: The modifiers ("so much", "again") are matched inside the lookaheads and
+#: never consumed. As an optional group before them they could match empty,
+#: and "Thanks again." slipped through by backtracking past its own guard.
+_THANKS_MODIFIER = r"(?:\s+(?:so much|very much|again|a lot))?"
+_SIGN_OFF_SEP = r"[,\u2014\u2013-]"
+
 ACKNOWLEDGEMENT = re.compile(
-    r"\b(?:thank(?:s| you)|appreciate|I (?:know|realise|realize|understand|recognise|recognize)\b"
+    r"\b(?:thank(?:s| you)"
+    rf"(?!{_THANKS_MODIFIER}\s*[,.!\u2014\u2013-]?\s*$)"
+    rf"(?!{_THANKS_MODIFIER}\s*[,.!]?\s*\n)"
+    rf"(?!{_THANKS_MODIFIER}\s*,?\s*(?:and\s+)?(?:best|kind|warm)\s+regards)"
+    rf"(?!{_THANKS_MODIFIER}\s*,?\s*(?:regards|cheers|best)\b)"
+    rf"(?!{_THANKS_MODIFIER}\s*{_SIGN_OFF_SEP}\s*[A-Z][a-z]+\s*[.!]?\s*$)"
+    r"|appreciate|I (?:know|realise|realize|understand|recognise|recognize)\b"
     r"|I'm sorry|I am sorry|apolog\w+|aware that you|given (?:your|how)"
     r"|know (?:this|how much|you)\b)", FLAGS)
 
@@ -83,9 +103,18 @@ EVIDENCE = re.compile(
     r"|we (?:tested|measured|observed)|source:|see\s+\[)", FLAGS)
 
 #: A named party who will carry an action.
+#: `[A-Z][a-z]+ will` is there to catch a named party — "Priya will send
+#: it". It also caught "It will be handled once the review closes", which is
+#: the passive with no actor that MEANINGS excludes *by name*: the claim and
+#: the pattern disagreed, and the claim was right. Pronouns and determiners
+#: starting a sentence look exactly like a name to `[A-Z][a-z]+`, so they are
+#: excluded explicitly. "We will" and "I will" keep their own alternatives —
+#: a writer committing themselves does name someone.
 OWNER = re.compile(
     r"\b(?:I will|I'll|we will|we'll|I am|I'm going to|owner:|assigned to"
-    r"|[A-Z][a-z]+ will\b)|@[A-Za-z][\w.-]*", re.MULTILINE)
+    r"|(?!(?:It|This|That|There|These|Those|Everything|Nothing|Someone|"
+    r"Anyone|Somebody|Anybody|Something)\b)[A-Z][a-z]+ will\b)"
+    r"|@[A-Za-z][\w.-]*", re.MULTILINE)
 
 #: A mechanism that confirms the message was received and acted on.
 #:

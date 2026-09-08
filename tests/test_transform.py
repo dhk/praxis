@@ -74,8 +74,20 @@ def test_a_phrase_that_is_really_absent_is_reported():
     assert spans.unlocatable(DRAFT, ["no such words here"]) == ["no such words here"]
 
 
+#: These tests are about the blocking mechanism, and they need an edit that
+#: lands on protected text. That edit is the hedge revise, and reaching it
+#: means not tripping the check before it: `evaluate._relationship_fit` asks
+#: "no acknowledgement of the reader" first, and only falls through to hedges
+#: when sensitivity is not high. DRAFT signs off "Thanks, Sam", which used to
+#: satisfy that check and no longer does — a bare sign-off acknowledges
+#: nothing in particular, which is what `acknowledgement` says it excludes.
+#: So the contract lowers sensitivity rather than the draft gaining a
+#: courtesy, which would have papered over the fix.
+BLOCKING = {"protected": ["somewhat"], "sensitivity": "moderate"}
+
+
 def test_an_edit_that_would_overwrite_protected_content_is_blocked():
-    result = _transform({"protected": ["somewhat"]})
+    result = _transform(BLOCKING)
     blocked = [e for e in result["edits"] if e["blocked_by"]]
     assert result["blocked"] == 1
     assert blocked[0]["where"]["text"] == "somewhat"
@@ -84,9 +96,26 @@ def test_an_edit_that_would_overwrite_protected_content_is_blocked():
 def test_a_blocked_edit_is_reported_rather_than_dropped():
     """The writer's constraint and the advice are in tension; praxis says
     so instead of silently choosing."""
-    with_protection = _transform({"protected": ["somewhat"]})
-    without = _transform()
+    with_protection = _transform(BLOCKING)
+    without = _transform({"sensitivity": "moderate"})
     assert len(with_protection["edits"]) == len(without["edits"])
+
+
+def test_a_bare_sign_off_does_not_acknowledge_the_reader():
+    """The behaviour the fixture above had to be changed around.
+
+    DRAFT ends "Thanks, Sam" and says nothing about Priya's position. At
+    high sensitivity that is a gap, and it used to read as satisfied — the
+    same shape as a courtesy phrase satisfying a safety-critical escalation
+    requirement, which is one of the seven findings that started #35.
+    """
+    from praxis import signals
+    assert not signals.find("acknowledgement", "Thanks,\nSam")
+    result = _transform({"protected": ["somewhat"]})   # sensitivity stays high
+    reasons = {e["dimension"] for e in result["edits"]}
+    assert "relationship_fit" in reasons
+    edit = next(e for e in result["edits"] if e["dimension"] == "relationship_fit")
+    assert edit["kind"] == "insert", "the ask is for an acknowledgement, not a reword"
 
 
 def test_protected_content_never_blocks_something_it_does_not_touch():
@@ -326,7 +355,9 @@ def test_the_invariant_panel_does_not_claim_byte_identity_for_phrases():
 
 def test_the_page_shows_located_changes():
     from praxis.render import document
-    html = document(design(DRAFT, build({**CONTRACT, "protected": ["somewhat"]}),
+    # Same reason as BLOCKING above: the page needs a protected span that
+    # actually blocks something, which needs the hedge revise.
+    html = document(design(DRAFT, build({**CONTRACT, **BLOCKING}),
                            mode="transform"))
     assert "Located changes" in html
     assert "characters" in html
