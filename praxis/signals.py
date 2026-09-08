@@ -68,12 +68,26 @@ HEDGE = re.compile(
 
 #: Recognition of the reader's effort, workload, or situation.
 #: A bare "Thanks" is a sign-off, which MEANINGS excludes: it acknowledges
-#: nothing in particular. "Thanks for the quick turnaround" acknowledges
-#: something, and the difference between them is whether the thanks names
-#: what it is for. So the thanking forms now require their object; every
-#: other alternative already carried one.
+#: nothing in particular. What separates it from a real acknowledgement is
+#: not whether it names an object — "Thanks, that was a big lift" names none
+#: and acknowledges plenty — but whether the thanks is the last thing the
+#: writer says. So the sign-off *shapes* are excluded rather than an object
+#: required: ending there, sitting above a name, running into a valediction,
+#: or naming the reader and stopping.
+#:
+#: The modifiers ("so much", "again") are matched inside the lookaheads and
+#: never consumed. As an optional group before them they could match empty,
+#: and "Thanks again." slipped through by backtracking past its own guard.
+_THANKS_MODIFIER = r"(?:\s+(?:so much|very much|again|a lot))?"
+_SIGN_OFF_SEP = r"[,\u2014\u2013-]"
+
 ACKNOWLEDGEMENT = re.compile(
-    r"\b(?:thank(?:s| you)(?:\s+\w+){0,3}\s+for\b"
+    r"\b(?:thank(?:s| you)"
+    rf"(?!{_THANKS_MODIFIER}\s*[,.!\u2014\u2013-]?\s*$)"
+    rf"(?!{_THANKS_MODIFIER}\s*[,.!]?\s*\n)"
+    rf"(?!{_THANKS_MODIFIER}\s*,?\s*(?:and\s+)?(?:best|kind|warm)\s+regards)"
+    rf"(?!{_THANKS_MODIFIER}\s*,?\s*(?:regards|cheers|best)\b)"
+    rf"(?!{_THANKS_MODIFIER}\s*{_SIGN_OFF_SEP}\s*[A-Z][a-z]+\s*[.!]?\s*$)"
     r"|appreciate|I (?:know|realise|realize|understand|recognise|recognize)\b"
     r"|I'm sorry|I am sorry|apolog\w+|aware that you|given (?:your|how)"
     r"|know (?:this|how much|you)\b)", FLAGS)
