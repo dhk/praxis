@@ -49,6 +49,19 @@ class Edit:
     at: int | None = None
     where: dict | None = None
     blocked_by: list[dict] = field(default_factory=list)
+    to: int | None = None
+    """Where a `move` is going, when the engine knows.
+
+    A move told the reader to shift a sentence and never said where to, so
+    a surface could mark the origin and nothing else. Where the destination
+    is already computed, it belongs on the edit.
+
+    `None` means unknown, and that is the only thing it means. Offset 0 is a
+    real position — the very top of the draft — so the two must not share a
+    representation; `test_an_unknown_destination_is_absent_not_zero` holds
+    that line. A move whose destination has not been derived says nothing
+    rather than approximating one, in the same spirit as `no_edit_for`.
+    """
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -114,9 +127,10 @@ def _region(edit: Edit, draft: str) -> Span | None:
     return None
 
 
-def _edit(kind, dimension, instruction, at=None, where: Span | None = None) -> Edit:
+def _edit(kind, dimension, instruction, at=None, where: Span | None = None,
+          to: int | None = None) -> Edit:
     return Edit(kind=kind, dimension=dimension, instruction=instruction, at=at,
-                where=where.to_dict() if where else None)
+                where=where.to_dict() if where else None, to=to)
 
 
 def _outcome_clarity(draft, contract, structure, finding, body, end, gaps):
@@ -170,10 +184,14 @@ def _structural_fit(draft, contract, structure, finding, body, end, gaps):
                       f"{structure} leads with the point, and no sentence in the draft "
                       "states it. Write the conclusion first, then let the background "
                       "follow.", at=body)]
+    # "The top of the message, before the background" is `body` — the same
+    # offset the sibling insert above uses. The prose already named it; this
+    # hands the surface the number instead of asking it to parse the
+    # sentence.
     return [_edit("move", "structural_fit",
                   f"{structure} leads with the point. Move this sentence to the top "
                   "of the message, before the background.",
-                  where=carriers[0])]
+                  where=carriers[0], to=body)]
 
 
 def _relationship_fit(draft, contract, structure, finding, body, end, gaps):
