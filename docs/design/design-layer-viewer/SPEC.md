@@ -12,7 +12,7 @@ the surface delivers it. Product decisions behind both:
 repository unchanged. Its reference implementation, `Design Layer Viewer.dc.html`,
 lives in that project and is **not** in this repo — where this document and
 that file disagree, the reference file wins, so anyone implementing from here
-should open it too. §12 is the only repository-side addition.
+should open it too. §12 and §13 are the repository-side additions.
 
 ---
 
@@ -371,7 +371,12 @@ needs a translucent fill that no existing token provides.
 
 ---
 
-## 11. Not yet built
+## 11. Not yet built *(in the reference file)*
+
+*This section describes `Design Layer Viewer.dc.html`, as carried over. It is not the
+status of the implementation in this repository, which has moved past most of it —
+see §13. Kept unedited because the reference file is what the header says wins, and
+rewriting a carried-over section in place would make that provenance note false.*
 
 - Real data binding — everything is static placeholder content.
 - `Release the protection` / `Keep it as written` are no-ops.
@@ -424,3 +429,59 @@ writer answers reads as no progress at all.
 `mode="auto"` never selects transform, so §1's second rule is enforced by the engine
 rather than by the UI, and a transform with no draft is rejected rather than silently
 falling back to compose.
+
+---
+
+## 13. What is built here
+
+*Added in this repository, not part of the design document. §11 states the reference
+file's status and is accurate about it; this states the implementation's, which has
+moved past it. Two sections rather than one edited section, so the carried-over
+document stays carried over. Verified against `main` at `736b24f`, 2026-09-07 —
+re-derive rather than trust this if the code has moved.*
+
+Implementation: `web/design.html`, `web/src/design.js`, `web/design.css`, `web/fonts.css`.
+
+| §11 said | Actually |
+| --- | --- |
+| Real data binding — static placeholder content | **Built.** The page runs the engine in a worker (`web/src/engine.js`) and renders `design()`'s result. |
+| `Release the protection` / `Keep it as written` are no-ops | **Built** (#51). Release drops the declared phrases the edit collided with and re-runs, so the engine re-decides; Keep records the decision without dropping the edit, and Reconsider puts it back. |
+| Mobile — needs to collapse below roughly 900px | **Built.** `@media (max-width: 900px)` collapses `.two-pane` to one column and makes the gutter static. |
+| The free-text editor for the eleven open-domain fields (§4.2) | **Built** (#51). Typed by the engine's own `kind`: an input, a number input that sends a number, or one entry per line for `protected`. |
+| `folded_into` / `no_edit_for` specified but not rendered | **Built.** Both render in the two-pane. |
+| Move markers show origin but not destination | **Not built, and not this document's to close.** `transform.Edit` carries no destination and §10 forbids the UI inventing one, so it is engine work — tracked as dhk/praxis#52. |
+| Applying a change — deliberately no Apply button | **Unchanged, and still deliberate.** |
+
+Two things §11 could not have known:
+
+- **The blocked panel rendered `[object Object]`.** `blocked_by` is a list of spans —
+  `{start, end, text}` — and the markup joined the objects. It went unseen because the
+  bundled example declares no protection, so the panel never rendered in the shipped
+  page. Fixed in #51. A section of a spec that no example exercises is a section
+  nobody checks.
+- **The page was not offline, and this document never said it had to be.** Both
+  `design.html` and `index.html` loaded a Google Fonts CDN. Searching §1–§12 for the
+  constraint finds nothing: it is stated in dhk/praxis#37 and on the page itself
+  ("nothing leaves the browser"), but never in the requirement whoever builds the
+  surface is handed. That is how the font got in. The font is vendored as of #50 and
+  `scripts/check_no_network.sh` enforces it in CI over both the source tree and the
+  built output — the older check only ever looked at the CLI-rendered
+  `artifacts/design.html` — but a check is not a requirement, so the constraint is
+  written into §13.1 below.
+
+### 13.1 The constraint this document was missing
+
+**No network at runtime.** No CDN, no analytics, no web fonts, no telemetry. The draft
+never leaves the browser and the page works offline. This is a privacy guarantee rather
+than a preference: the page tells the reader "nothing leaves the browser", so the
+implementation has to be unconditional. A font is vendored under `web/fonts/`, not
+linked. `scripts/check_no_network.sh` fails the build on a remote `src`, a remote
+`<link href>`, or a stylesheet `@import`/`url()`.
+
+An `<a href>` is not a violation — that is navigation the reader chooses, not a request
+the page makes.
+
+### Still open
+
+- **Difference maps in the transformation harness's Compare panel** — deferred from
+  wave 2 alongside this surface, and a different file (`web/src/main.js`).
