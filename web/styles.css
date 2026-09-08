@@ -521,6 +521,18 @@ table.data code, .before-after code {
 .compare-col { display: flex; flex-direction: column; gap: 8px; }
 .compare-pane { max-height: 620px; overflow-y: auto; }
 
+/* The Changes view is one column, not two: a marked diff is already the
+   comparison, so splitting it would ask the reader to read the same text
+   twice. */
+.compare-changes { display: flex; flex-direction: column; gap: 8px; }
+.diff-legend {
+  display: flex; flex-wrap: wrap; gap: 16px;
+  padding-top: 10px; border-top: 1px solid var(--border-light);
+  font-size: 12px; color: var(--text-dim);
+}
+.diff-legend .legend-item { display: flex; align-items: center; gap: 6px; }
+.diff-legend del, .diff-legend ins { text-decoration: none; padding: 1px 4px; }
+
 .rendered-view {
   background: var(--surface);
   border: 1px solid var(--border);
